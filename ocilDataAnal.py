@@ -16,7 +16,7 @@ class eventData:
         self.numPoints = len(times)
         self.sampleSpaceing = times[1] - times[0]
 
-def readDataFromCSV(pathName:str, plot = False, probeRatio = 1.0) ->  eventData:
+def readDataFromCSV(pathName:str, plot = False, probeRatio = 1.0, smoothing = 0) ->  eventData:
     #pathName: path to read the CSV
 
     with open(pathName, newline='') as csvfile:
@@ -30,6 +30,9 @@ def readDataFromCSV(pathName:str, plot = False, probeRatio = 1.0) ->  eventData:
          for row in reader:
               times.append(t0 + tstep * float(row[ROW_INDEX]))
               voltages.append(float(row[ROW_VALUE])/probeRatio)
+
+    if smoothing > 0: 
+        voltages = movingAverage(voltages, smoothing)
 
     if plot:
         plt.plot(times, voltages)
@@ -56,11 +59,11 @@ def dataFft(data:eventData, plot = False):
 
     return freqs, mags
 
-def overlayFfts(pathBase:str, fileNumbers:list[str]):
+def overlayFfts(pathBase:str, fileNumbers:list[str], smoothing = 0):
 
     for i in fileNumbers:
         fileName = pathBase + i + ".csv"
-        data = readDataFromCSV(fileName)
+        data = readDataFromCSV(fileName, smoothing=smoothing)
         freqs, mags = dataFft(data)
         plt.plot(freqs, mags, label = str(i))
     
@@ -70,11 +73,11 @@ def overlayFfts(pathBase:str, fileNumbers:list[str]):
     plt.legend()
     plt.show()
 
-def overlayData(pathBase:str, fileNumbers:list[str]):
+def overlayData(pathBase:str, fileNumbers:list[str], smoothing = 0):
 
     for i in fileNumbers:
         fileName = pathBase + i + ".csv"
-        data = readDataFromCSV(fileName)
+        data = readDataFromCSV(fileName, smoothing=smoothing)
         plt.plot(data.times, data.voltages, label = str(i))
     
     plt.title("Voltage vs Time")
@@ -82,17 +85,28 @@ def overlayData(pathBase:str, fileNumbers:list[str]):
     plt.legend()
     plt.show()
         
+def movingAverage(data:list[float], nhalf) -> list[float]:
 
+    dataSmoothed = data.copy()
+    for i in range(nhalf, len(data) - nhalf):
+        dataSmoothed[i] = sum(data[i - nhalf: i + nhalf - 1])/(nhalf * 2)
+    
+    # plt.plot(data)
+    # plt.plot(dataSmoothed)
+    # plt.show()
+
+    return dataSmoothed
+    
 if __name__ == "__main__":
     print("in ocilDataAnal.py: ")
     pathBase = "/Users/Sam/Code/pingpongsense/Data/Oscilliscope 110423/"
     listToPlot = ["pp7","pp12", "np21", "np25", "np23"]
-    overlayData(pathBase, listToPlot)
-    overlayFfts(pathBase, listToPlot)
+    overlayData(pathBase, listToPlot, smoothing=5)
+    overlayFfts(pathBase, listToPlot, smoothing=5)
     
 
 
     # pathName = "/Users/Sam/Code/pingpongsense/Data/Oscilliscope 110423/pp10.csv"
     # ppData = readDataFromCSV(pathName, plot = False, probeRatio=10)
-    # dataFft(ppData)
+    # movingAverage(ppData.voltages, 5)
 
