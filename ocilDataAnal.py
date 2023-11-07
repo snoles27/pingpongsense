@@ -16,7 +16,12 @@ class eventData:
         self.numPoints = len(times)
         self.sampleSpaceing = times[1] - times[0]
 
-def readDataFromCSV(pathName:str, plot = False, probeRatio = 1.0, smoothing = 0) ->  eventData:
+
+def closestIndex(nums, value):
+
+    return np.argmin(np.abs(np.array(nums)-value))
+
+def readDataFromCSV(pathName:str, plot = False, probeRatio = 1.0, smoothing = 0, onlyPositiveT = False) ->  eventData:
     #pathName: path to read the CSV
 
     with open(pathName, newline='') as csvfile:
@@ -33,6 +38,11 @@ def readDataFromCSV(pathName:str, plot = False, probeRatio = 1.0, smoothing = 0)
 
     if smoothing > 0: 
         voltages = movingAverage(voltages, smoothing)
+
+    if onlyPositiveT:
+        startIndex = closestIndex(times, 0.)
+        voltages = voltages[startIndex:]
+        times = times[startIndex:]
 
     if plot:
         plt.plot(times, voltages)
@@ -59,11 +69,18 @@ def dataFft(data:eventData, plot = False):
 
     return freqs, mags
 
-def overlayFfts(pathBase:str, fileNumbers:list[str], smoothing = 0):
+#hardcoded scaling based on how the data was collected assuming <19 is 10X and >19 is 1X probe multiple
+def overlayFfts(pathBase:str, fileNumbers:list[str], smoothing = 0, onlyPositiveT = False):
 
     for i in fileNumbers:
+        index = int(i[2:])
+        if index < 19:
+            print("Scaling: " + i)
+            scale = 10
+        else:
+            scale = 1
         fileName = pathBase + i + ".csv"
-        data = readDataFromCSV(fileName, smoothing=smoothing)
+        data = readDataFromCSV(fileName, smoothing=smoothing, onlyPositiveT=onlyPositiveT, probeRatio=scale)
         freqs, mags = dataFft(data)
         plt.plot(freqs, mags, label = str(i))
     
@@ -73,11 +90,18 @@ def overlayFfts(pathBase:str, fileNumbers:list[str], smoothing = 0):
     plt.legend()
     plt.show()
 
-def overlayData(pathBase:str, fileNumbers:list[str], smoothing = 0):
+#hardcoded scaling based on how the data was collected assuming <19 is 10X and >19 is 1X probe multiple
+def overlayData(pathBase:str, fileNumbers:list[str], smoothing = 0, onlyPositiveT = False):
 
     for i in fileNumbers:
+        index = int(i[2:])
+        if index < 19:
+            print("Scaling " + i)
+            scale = 10
+        else:
+            scale = 1
         fileName = pathBase + i + ".csv"
-        data = readDataFromCSV(fileName, smoothing=smoothing)
+        data = readDataFromCSV(fileName, smoothing=smoothing, onlyPositiveT=onlyPositiveT, probeRatio=scale)
         plt.plot(data.times, data.voltages, label = str(i))
     
     plt.title("Voltage vs Time")
@@ -90,19 +114,15 @@ def movingAverage(data:list[float], nhalf) -> list[float]:
     dataSmoothed = data.copy()
     for i in range(nhalf, len(data) - nhalf):
         dataSmoothed[i] = sum(data[i - nhalf: i + nhalf - 1])/(nhalf * 2)
-    
-    # plt.plot(data)
-    # plt.plot(dataSmoothed)
-    # plt.show()
 
     return dataSmoothed
     
 if __name__ == "__main__":
     print("in ocilDataAnal.py: ")
     pathBase = "/Users/Sam/Code/pingpongsense/Data/Oscilliscope 110423/"
-    listToPlot = ["pp7","pp12", "np21", "np25", "np23"]
-    overlayData(pathBase, listToPlot, smoothing=5)
-    overlayFfts(pathBase, listToPlot, smoothing=5)
+    listToPlot = ["pp10", "pp14", "np25", "np21", "np23"]
+    overlayData(pathBase, listToPlot, smoothing=0, onlyPositiveT=True)
+    overlayFfts(pathBase, listToPlot, smoothing=0, onlyPositiveT=False)
     
 
 
