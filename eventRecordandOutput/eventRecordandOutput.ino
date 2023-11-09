@@ -14,7 +14,7 @@
 #define RECORDTHRESHLOW 400
 
 #define DATAREVERSEKEEP 15 //number of data points before the event was detected to keep in the returned stuff 
-#define timeIncriment 50 //number of microseconds to wait between records
+#define timeIncriment 200 //number of microseconds to wait between records
 
 #define POSTEVENTPAUSE 100 //millis to pause after sending event data over serial
 
@@ -90,17 +90,17 @@ void loop() {
 //        Serial.print(", ");
 //        Serial.println(dataStore[i]);
 
-          Serial.print((timeStore[i] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.print(dataStore[i]);
-          Serial.print(", ");
-          Serial.print((timeStore[i+1] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.print(dataStore[i+1]);
-          Serial.print(", ");
-          Serial.print((timeStore[i+2] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.println(dataStore[i+2]);
+//          Serial.print((timeStore[i] - timeStore[eventStartIndex]));
+//          Serial.print(", ");
+//          Serial.print(dataStore[i]);
+//          Serial.print(", ");
+//          Serial.print((timeStore[i+1] - timeStore[eventStartIndex]));
+//          Serial.print(", ");
+//          Serial.print(dataStore[i+1]);
+//          Serial.print(", ");
+//          Serial.print((timeStore[i+2] - timeStore[eventStartIndex]));
+//          Serial.print(", ");
+//          Serial.println(dataStore[i+2]);
       }
 
       for(int i = 0; i < startPrintIndex; i = i + NUMCHANNEL){
@@ -110,17 +110,17 @@ void loop() {
 //        Serial.print(", ");
 //        Serial.println(dataStore[i]);
 //
-          Serial.print((timeStore[i] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.print(dataStore[i]);
-          Serial.print(", ");
-          Serial.print((timeStore[i+1] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.print(dataStore[i+1]);
-          Serial.print(", ");
-          Serial.print((timeStore[i+2] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.println(dataStore[i+2]);
+//          Serial.print((timeStore[i] - timeStore[eventStartIndex]));
+//          Serial.print(", ");
+//          Serial.print(dataStore[i]);
+//          Serial.print(", ");
+//          Serial.print((timeStore[i+1] - timeStore[eventStartIndex]));
+//          Serial.print(", ");
+//          Serial.print(dataStore[i+1]);
+//          Serial.print(", ");
+//          Serial.print((timeStore[i+2] - timeStore[eventStartIndex]));
+//          Serial.print(", ");
+//          Serial.println(dataStore[i+2]);
       }
 
       Serial.println(DATAENDSTRING);
@@ -140,7 +140,8 @@ void loop() {
        //update indicies and values
        adcPinIndex = (adcPinIndex + 1) % 3;
        activeIndex = (activeIndex + 1) % NUMSTORE;
-       timeThresh = currentTime + timeIncriment; 
+       timeThresh = currentTime + timeIncriment;
+       Serial.println(micros() - currentTime); 
     }
    
   }
