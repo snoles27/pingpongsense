@@ -57,12 +57,10 @@ void setup() {
 }
 
 void loop() {
-
-  currentTime = micros(); //get current time 
-  if(currentTime > timeThresh){
+  
     //record value
+    timeStore[activeIndex] = micros();
     dataStore[activeIndex] = analogReadFast(adcPin[adcPinIndex]);
-    timeStore[activeIndex] = currentTime; 
 
     //check if over a threshold, if so start the event save 
     if(notActive && (dataStore[activeIndex] > RECORDTHRESHHIGH || dataStore[activeIndex] < RECORDTHRESHLOW)){
@@ -90,17 +88,17 @@ void loop() {
 //        Serial.print(", ");
 //        Serial.println(dataStore[i]);
 
-//          Serial.print((timeStore[i] - timeStore[eventStartIndex]));
-//          Serial.print(", ");
-//          Serial.print(dataStore[i]);
-//          Serial.print(", ");
-//          Serial.print((timeStore[i+1] - timeStore[eventStartIndex]));
-//          Serial.print(", ");
-//          Serial.print(dataStore[i+1]);
-//          Serial.print(", ");
-//          Serial.print((timeStore[i+2] - timeStore[eventStartIndex]));
-//          Serial.print(", ");
-//          Serial.println(dataStore[i+2]);
+          Serial.print((timeStore[i] - timeStore[eventStartIndex]));
+          Serial.print(", ");
+          Serial.print(dataStore[i]);
+          Serial.print(", ");
+          Serial.print((timeStore[i+1] - timeStore[eventStartIndex]));
+          Serial.print(", ");
+          Serial.print(dataStore[i+1]);
+          Serial.print(", ");
+          Serial.print((timeStore[i+2] - timeStore[eventStartIndex]));
+          Serial.print(", ");
+          Serial.println(dataStore[i+2]);
       }
 
       for(int i = 0; i < startPrintIndex; i = i + NUMCHANNEL){
@@ -110,17 +108,17 @@ void loop() {
 //        Serial.print(", ");
 //        Serial.println(dataStore[i]);
 //
-//          Serial.print((timeStore[i] - timeStore[eventStartIndex]));
-//          Serial.print(", ");
-//          Serial.print(dataStore[i]);
-//          Serial.print(", ");
-//          Serial.print((timeStore[i+1] - timeStore[eventStartIndex]));
-//          Serial.print(", ");
-//          Serial.print(dataStore[i+1]);
-//          Serial.print(", ");
-//          Serial.print((timeStore[i+2] - timeStore[eventStartIndex]));
-//          Serial.print(", ");
-//          Serial.println(dataStore[i+2]);
+          Serial.print((timeStore[i] - timeStore[eventStartIndex]));
+          Serial.print(", ");
+          Serial.print(dataStore[i]);
+          Serial.print(", ");
+          Serial.print((timeStore[i+1] - timeStore[eventStartIndex]));
+          Serial.print(", ");
+          Serial.print(dataStore[i+1]);
+          Serial.print(", ");
+          Serial.print((timeStore[i+2] - timeStore[eventStartIndex]));
+          Serial.print(", ");
+          Serial.println(dataStore[i+2]);
       }
 
       Serial.println(DATAENDSTRING);
@@ -140,11 +138,6 @@ void loop() {
        //update indicies and values
        adcPinIndex = (adcPinIndex + 1) % 3;
        activeIndex = (activeIndex + 1) % NUMSTORE;
-       timeThresh = currentTime + timeIncriment;
-       Serial.println(micros() - currentTime); 
     }
-   
-  }
-  
 
 }
