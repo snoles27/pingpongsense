@@ -1,4 +1,5 @@
 #include <avdweb_AnalogReadFast.h>
+#include <limits.h>
 #include <UUID.h>
 
 
@@ -14,6 +15,7 @@
 #define RECORDTHRESHLOW 400
 
 #define DATAREVERSEKEEP 15 //number of data points before the event was detected to keep in the returned stuff 
+#define TIMESTEP 40 //timestep in micros
 
 #define POSTEVENTPAUSE 100 //millis to pause after sending event data over serial
 
@@ -29,6 +31,8 @@ short stopIndex;
 short eventStartIndex = 0; //value to indicate where the event crosses the threshold
 short activeIndex = 0; 
 bool notActive = true; 
+long currentTime;
+long timeThresh;
 
 const byte adcPin0 = A0;  // Analog input pin that the potentiometer is attached to
 const byte adcPin1 = A1; 
@@ -43,7 +47,7 @@ UUID uuid;
 void setup() {
 
   reverseKeepIndex = DATAREVERSEKEEP * NUMCHANNEL;
-  
+  timeThresh = LONG_MIN;
   delay(200);
   Serial.begin(9600);
   analogReadResolution(10); //10 bit analog read resolution
@@ -52,9 +56,10 @@ void setup() {
 }
 
 void loop() {
-  
-    //record value
-    timeStore[activeIndex] = micros();
+
+  currentTime = micros();
+  if(currentTime > timeThresh){
+    timeStore[activeIndex] = currentTime;
     dataStore[activeIndex] = analogReadFast(adcPin[adcPinIndex]);
     //pinStore[activeIndex] = adcPin[adcPinIndex];
 
@@ -95,14 +100,16 @@ void loop() {
       activeIndex = 0;
       adcPinIndex = 0;
       notActive = true;
+      timeThresh = LONG_MIN;
       delay(POSTEVENTPAUSE);
     }
     else{
        //update indicies and values
        adcPinIndex = (adcPinIndex + 1) % 3;
        activeIndex = (activeIndex + 1) % NUMSTORE;
+       timeThresh = currentTime + TIMESTEP;
     }
-
+  }
 }
 
 void printRow(short data[NUMSTORE], long times[NUMSTORE], byte pins[NUMSTORE], int i, long baseTime){
