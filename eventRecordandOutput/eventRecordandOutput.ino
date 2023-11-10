@@ -1,8 +1,8 @@
 #include <avdweb_AnalogReadFast.h>
-#include <limits.h>
 #include <UUID.h>
 
 
+//CONSTANTS
 #define NUMSTORE 1500
 #define NUMCHANNEL 3
 #define NUMTIME 1
@@ -14,25 +14,20 @@
 #define RECORDTHRESHLOW 400
 
 #define DATAREVERSEKEEP 15 //number of data points before the event was detected to keep in the returned stuff 
-#define timeIncriment 50 //number of microseconds to wait between records
 
 #define POSTEVENTPAUSE 100 //millis to pause after sending event data over serial
 
 #define DATAENDSTRING "COMPLETE" 
 
 //GLOBALS
-
 short dataStore[NUMSTORE];
 long timeStore[NUMSTORE];
+byte pinStore[NUMSTORE];
 short incriment; 
 short reverseKeepIndex;
 short stopIndex;
 short eventStartIndex = 0; //value to indicate where the event crosses the threshold
 short activeIndex = 0; 
-
-long currentTime = 0;
-long timeThresh = 0;
-long holdTime = 0;
 bool notActive = true; 
 
 const byte adcPin0 = A0;  // Analog input pin that the potentiometer is attached to
@@ -57,21 +52,18 @@ void setup() {
 }
 
 void loop() {
-
-  currentTime = micros(); //get current time 
-  if(currentTime > timeThresh){
+  
     //record value
+    timeStore[activeIndex] = micros();
     dataStore[activeIndex] = analogReadFast(adcPin[adcPinIndex]);
-    timeStore[activeIndex] = currentTime; 
+    //pinStore[activeIndex] = adcPin[adcPinIndex];
 
     //check if over a threshold, if so start the event save 
     if(notActive && (dataStore[activeIndex] > RECORDTHRESHHIGH || dataStore[activeIndex] < RECORDTHRESHLOW)){
       notActive = false; //are in an active event; 
       eventStartIndex = activeIndex;
-      stopIndex = (NUMSTORE + eventStartIndex - reverseKeepIndex - 1) % NUMSTORE; 
-//      Serial.println("In the threshold place");
-//      Serial.println(eventStartIndex);
-//      Serial.println(stopIndex);
+      int firstSaveIndex = (eventStartIndex - reverseKeepIndex) - ((eventStartIndex - reverseKeepIndex) % NUMCHANNEL);
+      stopIndex = (NUMSTORE + firstSaveIndex - 1) % NUMSTORE;
     }
 
     if(!notActive && activeIndex == stopIndex){
@@ -81,69 +73,55 @@ void loop() {
       Serial.print("EVENT UUID: ");
       Serial.println(uuid);
       //dump the data to serial
-      int startPrintIndex; //start printing at the first adc0 index 
-      startPrintIndex = eventStartIndex - reverseKeepIndex - ((eventStartIndex - reverseKeepIndex) % NUMCHANNEL);
+      int startPrintIndex; //start printing at the value immediatly after the stop index
+      startPrintIndex = stopIndex + 1;
+      Serial.print("Start Print Index: ");
+      Serial.print(startPrintIndex); //should always be % NUMCHANNEL = 0
+      Serial.print(", Event Start Index: ");
+      Serial.println(eventStartIndex); 
       for(int i = startPrintIndex; i < NUMSTORE; i = i + NUMCHANNEL){
-//        Serial.print(i % 3);
-//        Serial.print(", ");
-//        Serial.print(timeStore[i]);
-//        Serial.print(", ");
-//        Serial.println(dataStore[i]);
 
-          Serial.print((timeStore[i] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.print(dataStore[i]);
-          Serial.print(", ");
-          Serial.print((timeStore[i+1] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.print(dataStore[i+1]);
-          Serial.print(", ");
-          Serial.print((timeStore[i+2] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.println(dataStore[i+2]);
+          printRow(dataStore, timeStore, pinStore, i, timeStore[eventStartIndex]);
       }
 
       for(int i = 0; i < startPrintIndex; i = i + NUMCHANNEL){
-//        Serial.print(i % 3);
-//        Serial.print(", ");
-//        Serial.print(timeStore[i]);
-//        Serial.print(", ");
-//        Serial.println(dataStore[i]);
-//
-          Serial.print((timeStore[i] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.print(dataStore[i]);
-          Serial.print(", ");
-          Serial.print((timeStore[i+1] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.print(dataStore[i+1]);
-          Serial.print(", ");
-          Serial.print((timeStore[i+2] - timeStore[eventStartIndex]));
-          Serial.print(", ");
-          Serial.println(dataStore[i+2]);
+
+            printRow(dataStore, timeStore, pinStore, i, timeStore[eventStartIndex]);
       }
 
       Serial.println(DATAENDSTRING);
-      
-      //print key indexes, debugging
-//      Serial.print("eventStartIndex: ");
-//      Serial.println(eventStartIndex);
 
-      //rest everthing 
+      //reset everthing 
       activeIndex = 0;
       adcPinIndex = 0;
       notActive = true;
-      timeThresh = LONG_MIN;
       delay(POSTEVENTPAUSE);
     }
     else{
        //update indicies and values
        adcPinIndex = (adcPinIndex + 1) % 3;
        activeIndex = (activeIndex + 1) % NUMSTORE;
-       timeThresh = currentTime + timeIncriment; 
     }
-   
-  }
-  
 
+}
+
+void printRow(short data[NUMSTORE], long times[NUMSTORE], byte pins[NUMSTORE], int i, long baseTime){
+
+          Serial.print(i);
+          Serial.print(", ");
+          Serial.print((times[i] - baseTime));
+          Serial.print(", ");
+          Serial.print(data[i]);
+          Serial.print(", ");
+          Serial.print(i+1);
+          Serial.print(", ");
+          Serial.print((times[i+1] - baseTime));
+          Serial.print(", ");
+          Serial.print(data[i+1]);
+          Serial.print(", ");
+          Serial.print(i+2);
+          Serial.print(", ");
+          Serial.print((times[i+2] - baseTime));
+          Serial.print(", ");
+          Serial.println(data[i+2]);
 }
