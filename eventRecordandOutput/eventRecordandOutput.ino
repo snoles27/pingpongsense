@@ -18,7 +18,7 @@
 
 #define POSTEVENTPAUSE 100 //millis to pause after sending event data over serial
 
-#define DATAENDSTRING "COMPLETE"
+#define DATAENDSTRING "COMPLETE" 
 
 //GLOBALS
 
