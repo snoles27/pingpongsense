@@ -1,6 +1,6 @@
 import serial
 from inputimeout import inputimeout 
-
+import matplotlib.pyplot as plt
 
 SERIALPORT3 = "/dev/tty.usbmodem14301"
 BAUDRATE = 9600
@@ -90,12 +90,28 @@ def _requestEventLabel(eventData:event, timeout = 5):
     except Exception: 
         print("TIMEOUT: LABEL UNCHANGED")
 
+def plotEvent(eventData:event):
+
+    a0Times = [point.time for point in eventData.a0Data]
+    a1Times = [point.time for point in eventData.a1Data]
+    a2Times = [point.time for point in eventData.a2Data]
+
+    a0Values = [point.value for point in eventData.a0Data]
+    a1Values = [point.value for point in eventData.a1Data]
+    a2Values = [point.value for point in eventData.a2Data]
+
+    plt.plot(a0Times, a0Values, label = "Sensor 0")
+    plt.plot(a1Times, a1Values, label = "Sensor 1")
+    plt.plot(a2Times, a2Values, label = "Sensor 2")
+    plt.title(str(eventData))
+    plt.xlabel("Time (us)")
+    plt.ylabel("Response (a.u.)")
+    plt.legend()
+    plt.show()
 
 if __name__ == "__main__":
     ser = serial.Serial(SERIALPORT3, BAUDRATE, timeout = READATTEMPTTIMEOUT)
     eventData = readEventData(ser, requestLabel=True)
     ser.close()
-
     if eventData is not None:
-        for point in eventData.a2Data:
-            print(point)
+        plotEvent(eventData)
