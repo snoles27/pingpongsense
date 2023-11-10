@@ -115,3 +115,6 @@ if __name__ == "__main__":
     ser.close()
     if eventData is not None:
         plotEvent(eventData)
+        times = [point.time for point in eventData.a0Data]
+        for i in range(1, len(times)):
+            print(times[i] - times[i-1])
