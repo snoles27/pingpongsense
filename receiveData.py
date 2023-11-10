@@ -1,4 +1,5 @@
 import serial
+from inputimeout import inputimeout 
 
 
 SERIALPORT3 = "/dev/tty.usbmodem14301"
@@ -18,33 +19,62 @@ TIME_A1_INDEX = 4
 DATA_A2_INDEX = 8
 TIME_A2_INDEX = 7
 
-class event:
-    def __init__(self, uuid:str, data:list[list[int]] = [[]], times:list[list[int]] = [[]]):
-        self.uuid = uuid
-        self.data = data.copy()
-        self.times = times.copy()
+UUIDABREIV = 8
 
-def readEventData(openPort):
+NOLABELSTR = "NO LABEL"
+
+class eventDataPoint:
+    def __init__(self, value:int, time:int):
+        self.value = value
+        self.time = time
+
+    def __str__(self):
+        return "Time: " + str(self.time) + ", Value: " + str(self.value)
+
+class event:
+    def __init__(self, uuid:str, a0Data:list[eventDataPoint] = [], a1Data:list[eventDataPoint] = [], a2Data:list[eventDataPoint] = [], label:str = NOLABELSTR):
+        self.uuid = uuid
+        self.label = label
+        self.a0Data = a0Data.copy()
+        self.a1Data = a1Data.copy()
+        self.a2Data = a2Data.copy()
+    
+    def __str__(self):
+        return "UUID: " + self.uuid[:UUIDABREIV] + ", Label: " + self.label
+
+def readEventData(openPort, requestLabel = False) -> event:
+    #openPort: open serial port object
+    #returns: event object if event happens within READATTEMPTIMEOUT of function call. None if not. 
 
     with openPort as ser:
         line = str(ser.readline())
         if len(line) >= MINLEN:
-            dataMat = []
-            timesMat = []
             uuid = line[UUIDSTART:LINEEND]
-            secondLine = str(ser.readline())
-            line = str(ser.readline())
+            eventData = event(uuid = uuid)
+            secondLine = str(ser.readline()) #do nothing with the second line (yet)
+            line = str(ser.readline()) #read in the frist line to process
             while line != EVENTENDMARKER:
                 #process the line that was read in
                 lineData = processLine(line)
-                print(lineData)
-                dataInLine = [lineData[DATA_A0_INDEX], lineData[DATA_A1_INDEX], lineData[DATA_A2_INDEX]]
-                timeInLine = [lineData[TIME_A0_INDEX], lineData[TIME_A1_INDEX], lineData[TIME_A2_INDEX]]
-                dataMat.append(dataInLine)
-                timeInLine.append(timeInLine)
+
+                #get analog timestammped data points
+                a0Data = eventDataPoint(lineData[DATA_A0_INDEX], lineData[TIME_A0_INDEX])
+                a1Data = eventDataPoint(lineData[DATA_A1_INDEX], lineData[TIME_A1_INDEX])
+                a2Data = eventDataPoint(lineData[DATA_A2_INDEX], lineData[TIME_A2_INDEX])
+                
+                #append data points to event array 
+                eventData.a0Data.append(a0Data)
+                eventData.a1Data.append(a1Data)
+                eventData.a2Data.append(a2Data)
+
+                #read the next line
                 line = str(ser.readline())
-            
-            return event(uuid, dataMat, timesMat)
+
+            if requestLabel:
+                _requestEventLabel(eventData)
+
+            print(eventData)
+            return eventData
         else:
             print("NO EVENT")
             return None
@@ -54,12 +84,18 @@ def processLine(line) -> list[int]:
     splitList = line[LINESTART:LINEEND].split(", ")
     return [int(ele) for ele in splitList]
     
+def _requestEventLabel(eventData:event, timeout = 5):
+    try:
+        eventData.label = inputimeout("Label Data UUID: " + eventData.uuid[:8] + " (p = ping pong ball, n = not ping pong ball)", timeout=timeout)
+    except Exception: 
+        print("TIMEOUT: LABEL UNCHANGED")
+
 
 if __name__ == "__main__":
     ser = serial.Serial(SERIALPORT3, BAUDRATE, timeout = READATTEMPTTIMEOUT)
-    eventData = readEventData(ser)
+    eventData = readEventData(ser, requestLabel=True)
     ser.close()
 
     if eventData is not None:
-        for row in eventData.data:
-            print(row)
+        for point in eventData.a2Data:
+            print(point)
