@@ -30,6 +30,7 @@ CHANNEL_INDEX = 0
 TIME_INDEX = 1
 VALUE_INDEX = 2
 
+
 class eventDataPoint:
     def __init__(self, value:int, time:int):
         self.value = value
@@ -97,7 +98,7 @@ def readEventData(openPort, requestLabel = False) -> event:
             if requestLabel:
                 _requestEventLabel(eventData)
 
-            print(eventData)
+            # print(eventData)
             return eventData
         else:
             print("NO EVENT")
@@ -189,11 +190,11 @@ def readAllEvents(folderLoc:str) -> list[event]:
     for file in files:
         fullPath = folderLoc + file
         events.append(eventFileRead(fullPath))
-    
+
+    # for item in events:
+    #     print(item)
+
     return events
- 
-
-
     
 
 if __name__ == "__main__":
