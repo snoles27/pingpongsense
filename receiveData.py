@@ -1,7 +1,6 @@
 import serial
 from inputimeout import inputimeout 
 import matplotlib.pyplot as plt
-import eventAnalysis as anl
 import os
 
 SERIALPORT3 = "/dev/tty.usbmodem14301"
@@ -65,6 +64,8 @@ class event:
 
         return times, values
 
+
+
 def readEventData(openPort, requestLabel = False) -> event:
     #openPort: open serial port object
     #returns: event object if event happens within READATTEMPTIMEOUT of function call. None if not. 
@@ -107,7 +108,7 @@ def processLine(line) -> list[int]:
     splitList = line[LINESTART:LINEEND].split(", ")
     return [int(ele) for ele in splitList]
     
-def _requestEventLabel(eventData:event, timeout = 5):
+def _requestEventLabel(eventData:event, timeout = 10):
     try:
         eventData.label = inputimeout("Label Data UUID: " + eventData.uuid[:8] + " (p = ping pong ball, n = not ping pong ball)", timeout=timeout)
     except Exception: 
@@ -191,22 +192,27 @@ def readAllEvents(folderLoc:str) -> list[event]:
     
     return events
  
-def compareFFTRMS(events:list[event]):
-    
+
+
     
 
 if __name__ == "__main__":
     folderName = "Data/RawEventData/"
-    
-    allEvents = readAllEvents(folderName)
-    
-    # ser = serial.Serial(SERIALPORT3, BAUDRATE, timeout = READATTEMPTTIMEOUT)
-    # eventData = readEventData(ser, requestLabel=True)
-    # ser.close()
-    # if eventData is not None:
-    #     plotEvent(eventData)
-    #     eventFileWrite(folderLoc=folderName, eventData=eventData)
-    
+    ser = serial.Serial(SERIALPORT3, BAUDRATE, timeout = READATTEMPTTIMEOUT)
+
+    countMiss = 0
+    while True:
+        eventData = readEventData(ser, requestLabel=True)
+        if eventData is not None:
+            eventFileWrite(folderName, eventData)
+        else:
+            countMiss = countMiss + 1
+            if countMiss > 10:
+                leave = input("Want to stop? (Y/N)")
+                if leave == "Y":
+                    break
+                else:
+                    countMiss = 0
     # fullPath = folderName + str(eventData) + ".txt"
     # dataRead = eventFileRead(fullPath)
     # plotEvent(dataRead)
