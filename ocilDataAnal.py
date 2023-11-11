@@ -9,7 +9,7 @@ TIMESROW_TSTEP = 3
 ROW_INDEX = 0
 ROW_VALUE = 1
 
-class eventData:
+class singleChannelEvent:
     def __init__(self, times: list[float], voltages: list[float]):
         self.times = times.copy()
         self.voltages = voltages.copy()
@@ -21,7 +21,7 @@ def closestIndex(nums, value):
 
     return np.argmin(np.abs(np.array(nums)-value))
 
-def readDataFromCSV(pathName:str, plot = False, probeRatio = 1.0, smoothing = 0, onlyPositiveT = False) ->  eventData:
+def readDataFromCSV(pathName:str, plot = False, probeRatio = 1.0, smoothing = 0, onlyPositiveT = False) ->  singleChannelEvent:
     #pathName: path to read the CSV
 
     with open(pathName, newline='') as csvfile:
@@ -48,9 +48,9 @@ def readDataFromCSV(pathName:str, plot = False, probeRatio = 1.0, smoothing = 0,
         plt.plot(times, voltages)
         plt.show()
 
-    return eventData(times, voltages)
+    return singleChannelEvent(times, voltages)
 
-def dataFft(data:eventData, plot = False):
+def dataFft(data:singleChannelEvent, plot = False):
     
     N = data.numPoints
     print(data.numPoints)

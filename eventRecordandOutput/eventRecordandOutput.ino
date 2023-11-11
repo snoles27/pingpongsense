@@ -4,7 +4,7 @@
 
 
 //CONSTANTS
-#define NUMSTORE 1500
+#define NUMSTORE 900
 #define NUMCHANNEL 3
 #define NUMTIME 1
 
@@ -14,7 +14,7 @@
 #define RECORDTHRESHHIGH 600
 #define RECORDTHRESHLOW 400
 
-#define DATAREVERSEKEEP 15 //number of data points before the event was detected to keep in the returned stuff 
+#define DATAREVERSEKEEP 30 //number of data points before the event was detected to keep in the returned stuff 
 #define TIMESTEP 40 //timestep in micros
 
 #define POSTEVENTPAUSE 100 //millis to pause after sending event data over serial

@@ -1,10 +1,12 @@
 import serial
 from inputimeout import inputimeout 
 import matplotlib.pyplot as plt
+import eventAnalysis as anl
+import os
 
 SERIALPORT3 = "/dev/tty.usbmodem14301"
 BAUDRATE = 9600
-READATTEMPTTIMEOUT = 0.5
+READATTEMPTTIMEOUT = 2.0
 
 LINESTART = 2
 UUIDSTART = 14
@@ -23,6 +25,12 @@ UUIDABREIV = 8
 
 NOLABELSTR = "NO LABEL"
 
+#file info
+HEADERLINESNUM = 2
+CHANNEL_INDEX = 0
+TIME_INDEX = 1
+VALUE_INDEX = 2
+
 class eventDataPoint:
     def __init__(self, value:int, time:int):
         self.value = value
@@ -40,7 +48,22 @@ class event:
         self.a2Data = a2Data.copy()
     
     def __str__(self):
-        return "UUID: " + self.uuid[:UUIDABREIV] + ", Label: " + self.label
+        return "UUID-" + self.uuid[:UUIDABREIV] + "___Label-" + self.label
+    
+    def getChannelData(self, channelNumber:int):
+        times = []
+        values = []
+        if channelNumber == 0:
+            values = [point.value for point in self.a0Data]
+            times = [point.time for point in self.a0Data]
+        elif channelNumber == 1:
+            values = [point.value for point in self.a1Data]
+            times = [point.time for point in self.a1Data]
+        else:
+            values = [point.value for point in self.a2Data]
+            times = [point.time for point in self.a2Data]
+
+        return times, values
 
 def readEventData(openPort, requestLabel = False) -> event:
     #openPort: open serial port object
@@ -100,6 +123,8 @@ def plotEvent(eventData:event):
     a1Values = [point.value for point in eventData.a1Data]
     a2Values = [point.value for point in eventData.a2Data]
 
+    fig = plt.gcf()
+    fig.canvas.manager.set_window_title(str(eventData))
     plt.plot(a0Times, a0Values, label = "Sensor 0")
     plt.plot(a1Times, a1Values, label = "Sensor 1")
     plt.plot(a2Times, a2Values, label = "Sensor 2")
@@ -109,12 +134,79 @@ def plotEvent(eventData:event):
     plt.legend()
     plt.show()
 
+def eventFileWrite(folderLoc:str, eventData:event):
+
+    fileName = str(eventData) + ".txt"
+    fullPath = folderLoc + fileName
+
+    file = open(fullPath, mode = 'x')
+    file.write("UUID: " + eventData.uuid + "\nLabel: " + eventData.label + "\n")
+
+    times, values = eventData.getChannelData(0)
+    for i in range(0, len(times)):
+        file.write("0, " + str(times[i]) + ", " + str(values[i]) + "\n")
+
+    times, values = eventData.getChannelData(1)
+    for i in range(0, len(times)):
+        file.write("1, " + str(times[i]) + ", " + str(values[i]) + "\n")
+
+    times, values = eventData.getChannelData(2)
+    for i in range(0, len(times)):
+        file.write("2, " + str(times[i]) + ", " + str(values[i]) + "\n")
+
+def eventFileRead(fullPath:str) -> event:
+
+    
+    headerLines = []
+    file = open(fullPath, 'r')
+    for i in range(0, HEADERLINESNUM):
+        headerLines.append(str(file.readline()))
+
+    uuid = str(headerLines[0])[:-1].replace("UUID: ", "")
+    label = str(headerLines[1])[:-1].replace("Label: ", "")
+
+    axLists = [[], [], []]
+    while True:
+        line = file.readline()
+        if not line:
+            break
+        
+        linestr = str(line)[:-1] #convert to string andd remove new line indexs
+        lineItems = linestr.split(", ")
+
+        channel = int(lineItems[CHANNEL_INDEX])
+        eventPoint = eventDataPoint(int(lineItems[VALUE_INDEX]), int(lineItems[TIME_INDEX]))
+        axLists[channel].append(eventPoint)
+
+    return event(uuid=uuid, a0Data=axLists[0], a1Data=axLists[1], a2Data=axLists[2], label=label)
+
+def readAllEvents(folderLoc:str) -> list[event]:
+
+    events = []
+    files = os.listdir(folderLoc)
+    files = [f for f in files if os.path.isfile(folderLoc+'/'+f)] #Filtering only the files.
+    for file in files:
+        fullPath = folderLoc + file
+        events.append(eventFileRead(fullPath))
+    
+    return events
+ 
+def compareFFTRMS(events:list[event]):
+    
+    
+
 if __name__ == "__main__":
-    ser = serial.Serial(SERIALPORT3, BAUDRATE, timeout = READATTEMPTTIMEOUT)
-    eventData = readEventData(ser, requestLabel=True)
-    ser.close()
-    if eventData is not None:
-        plotEvent(eventData)
-        times = [point.time for point in eventData.a0Data]
-        for i in range(1, len(times)):
-            print(times[i] - times[i-1])
+    folderName = "Data/RawEventData/"
+    
+    allEvents = readAllEvents(folderName)
+    
+    # ser = serial.Serial(SERIALPORT3, BAUDRATE, timeout = READATTEMPTTIMEOUT)
+    # eventData = readEventData(ser, requestLabel=True)
+    # ser.close()
+    # if eventData is not None:
+    #     plotEvent(eventData)
+    #     eventFileWrite(folderLoc=folderName, eventData=eventData)
+    
+    # fullPath = folderName + str(eventData) + ".txt"
+    # dataRead = eventFileRead(fullPath)
+    # plotEvent(dataRead)
