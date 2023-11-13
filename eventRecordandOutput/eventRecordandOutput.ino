@@ -21,6 +21,8 @@
 
 #define DATAENDSTRING "COMPLETE" 
 
+#define BAUDRATE 57600
+
 //GLOBALS
 short dataStore[NUMSTORE];
 long timeStore[NUMSTORE];
@@ -49,7 +51,7 @@ void setup() {
   reverseKeepIndex = DATAREVERSEKEEP * NUMCHANNEL;
   timeThresh = LONG_MIN;
   delay(200);
-  Serial.begin(9600);
+  Serial.begin(BAUDRATE);
   analogReadResolution(10); //10 bit analog read resolution
   analogReference(AR_DEFAULT); //set the reference voltage to default (3v3 on the SAMD21)
 
@@ -91,7 +93,7 @@ void loop() {
 
       for(int i = 0; i < startPrintIndex; i = i + NUMCHANNEL){
 
-            printRow(dataStore, timeStore, pinStore, i, timeStore[eventStartIndex]);
+          printRow(dataStore, timeStore, pinStore, i, timeStore[eventStartIndex]);
       }
 
       Serial.println(DATAENDSTRING);

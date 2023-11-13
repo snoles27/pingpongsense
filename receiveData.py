@@ -2,9 +2,11 @@ import serial
 from inputimeout import inputimeout 
 import matplotlib.pyplot as plt
 import os
+import time
 
 SERIALPORT3 = "/dev/tty.usbmodem14301"
-BAUDRATE = 9600
+SERIALPORT1 = "/dev/tty.usbmodem14201"
+BAUDRATE = 57600 #must match that set in eventRecordandOutput
 READATTEMPTTIMEOUT = 2.0
 
 LINESTART = 2
@@ -72,12 +74,13 @@ def readEventData(openPort, requestLabel = False) -> event:
     #returns: event object if event happens within READATTEMPTIMEOUT of function call. None if not. 
 
     with openPort as ser:
-        line = str(ser.readline())
-        if len(line) >= MINLEN:
+        inBuffer = ser.in_waiting
+        if inBuffer >= 0:
+            line = str(ser.readline())
             uuid = line[UUIDSTART:LINEEND]
             eventData = event(uuid = uuid)
             secondLine = str(ser.readline()) #do nothing with the second line (yet)
-            line = str(ser.readline()) #read in the frist line to process
+            line = str(ser.readline()) #read in the first line to process
             while line != EVENTENDMARKER:
                 #process the line that was read in
                 lineData = processLine(line)
@@ -199,7 +202,7 @@ def readAllEvents(folderLoc:str) -> list[event]:
 
 if __name__ == "__main__":
     folderName = "Data/RawEventData/"
-    ser = serial.Serial(SERIALPORT3, BAUDRATE, timeout = READATTEMPTTIMEOUT)
+    ser = serial.Serial(SERIALPORT1, BAUDRATE, timeout = READATTEMPTTIMEOUT)
 
     countMiss = 0
     while True:
