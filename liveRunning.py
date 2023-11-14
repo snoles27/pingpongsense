@@ -3,9 +3,9 @@ import receiveData as rec
 import serial
 
 #Classification Constants (derived with eventAnalysis.py)
-MIN_RMS_FREQ = 1415
-MAX_RMS_FREQ = 1663
-THRESH = 0.312
+MIN_RMS_FREQ = 1163
+MAX_RMS_FREQ = 1915
+THRESH = 0.316
 
 if __name__ == "__main__":
     folderName = "Data/RawEventData/"

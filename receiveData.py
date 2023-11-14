@@ -74,9 +74,8 @@ def readEventData(openPort, requestLabel = False) -> event:
     #returns: event object if event happens within READATTEMPTIMEOUT of function call. None if not. 
 
     with openPort as ser:
-        inBuffer = ser.in_waiting
-        if inBuffer >= 0:
-            line = str(ser.readline())
+        line = str(ser.readline())
+        if len(line) >= MINLEN:
             uuid = line[UUIDSTART:LINEEND]
             eventData = event(uuid = uuid)
             secondLine = str(ser.readline()) #do nothing with the second line (yet)

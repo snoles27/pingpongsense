@@ -156,60 +156,67 @@ def classify_RMS(event:rec.event, minFreq, maxFreq, thresh):
     return meanChannelMagRMSRange(event, minFreq, maxFreq) > thresh
 
 if __name__ == "__main__":
+
     folderName = "Data/RawEventData/"
-    minFreq = 1415
-    maxFreq = 1663
-
-    def rms(freqs, mags) : return magRMSRange(freqs, mags, minFreq, maxFreq)
-    def channelRMS(event) : return meanChannelMagRMSRange(event, minFreq, maxFreq)
     def rmsCost(presults, nresults) : return (1 - (np.min(presults) - np.max(nresults))/(np.max(nresults)))
-
     allEvents = rec.readAllEvents(folderName)
-    presults, nresults = applyMetricToEvents(allEvents, channelRMS)
 
-    plt.vlines(presults, -1, 1, colors="blue")
-    plt.vlines(nresults, -1, 1, colors="red")
-    plt.vlines(0.312, -1, 1, colors="black")
-    plt.show()
+    # minFreq = 1415
+    # maxFreq = 1663
+
+    ## 11/12/23 results
+    # minFreq = 1163.157894736842
+    # maxFreq = 1915.7894736842106
+    # mid = 0.31597582047520656
+
+    # def rms(freqs, mags) : return magRMSRange(freqs, mags, minFreq, maxFreq)
+    # def channelRMS(event) : return meanChannelMagRMSRange(event, minFreq, maxFreq)
+   
+    # presults, nresults = applyMetricToEvents(allEvents, channelRMS)
+
+    # plt.vlines(presults, -1, 1, colors="blue")
+    # plt.vlines(nresults, -1, 1, colors="red")
+    # plt.vlines(0.312, -1, 1, colors="black")
+    # plt.show()
 
 
 #### Evaluating a bunch of possible frequencies 
-    # N = 20
-    # minFreqs = np.linspace(700, 1500, N)
-    # maxFreqs = np.linspace(1200, 2000, N)
+    N = 20
+    minFreqs = np.linspace(700, 1500, N)
+    maxFreqs = np.linspace(1200, 2000, N)
 
-    # results = np.zeros((N,N))
-    # for i in range(0,N):
-    #     for j in range(0,N):
-    #         minfreq = minFreqs[i]
-    #         maxfreq = maxFreqs[j]
-    #         if minfreq >= maxfreq-20: #not allowed condition cost --> inf
-    #             results[i][j] = np.inf
-    #         else:
-    #             def eval(event) : return meanChannelMagRMSRange(event, minfreq, maxfreq)
-    #             results[i][j] = evaluateMetric(allEvents, eval, rmsCost)
+    results = np.zeros((N,N))
+    for i in range(0,N):
+        for j in range(0,N):
+            minfreq = minFreqs[i]
+            maxfreq = maxFreqs[j]
+            if minfreq >= maxfreq-20: #not allowed condition cost --> inf
+                results[i][j] = np.inf
+            else:
+                def eval(event) : return meanChannelMagRMSRange(event, minfreq, maxfreq)
+                results[i][j] = evaluateMetric(allEvents, eval, rmsCost)
             
-    # Dislaying results and plotting the splits on the best one
-    # print(results)
-    # bestIndex = np.argmin(results)
-    # i = int(np.floor(bestIndex/N))
-    # j = bestIndex % N
-    # print(bestIndex)
-    # print(i)
-    # print(j)
-    # print(results[i][j])
-    # minFreq = minFreqs[i]
-    # maxFreq = maxFreqs[j]
+    #Dislaying results and plotting the splits on the best one
+    print(results)
+    bestIndex = np.argmin(results)
+    i = int(np.floor(bestIndex/N))
+    j = bestIndex % N
+    print(bestIndex)
+    print(i)
+    print(j)
+    print(results[i][j])
+    minFreq = minFreqs[i]
+    maxFreq = maxFreqs[j]
 
-    # print("Min Freq: " + str(minFreq))
-    # print("Max Freq: " + str(maxFreq))
-    # def channelRMS(event) : return meanChannelMagRMSRange(event, minFreq, maxFreq)
-    # presults, nresults = applyMetricToEvents(allEvents, channelRMS)
+    print("Min Freq: " + str(minFreq))
+    print("Max Freq: " + str(maxFreq))
+    def channelRMS(event) : return meanChannelMagRMSRange(event, minFreq, maxFreq)
+    presults, nresults = applyMetricToEvents(allEvents, channelRMS)
 
-    # print("mid: " + str((min(presults) + max(nresults))/2))
-    # plt.vlines(presults, -1, 1, colors="blue")
-    # plt.vlines(nresults, -1, 1, colors="red")
-    # plt.show()
+    print("mid: " + str((min(presults) + max(nresults))/2))
+    plt.vlines(presults, -1, 1, colors="blue")
+    plt.vlines(nresults, -1, 1, colors="red")
+    plt.show()
 #######
 
     # 
