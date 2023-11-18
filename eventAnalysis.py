@@ -152,7 +152,7 @@ def evaluateMetric(events:list[rec.event], metric, cost):
     presults, nresults = applyMetricToEvents(events, metric)
     return cost(presults, nresults)
 
-def classify_RMS(event:rec.event, minFreq, maxFreq, thresh):
+def classify_RMS(event:rec.event, minFreq, maxFreq, thresh) -> bool:
     return meanChannelMagRMSRange(event, minFreq, maxFreq) > thresh
 
 if __name__ == "__main__":

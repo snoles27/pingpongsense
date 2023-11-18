@@ -9,7 +9,7 @@ THRESH = 0.316
 
 if __name__ == "__main__":
     folderName = "Data/RawEventData/"
-    ser = serial.Serial(rec.SERIALPORT1, rec.BAUDRATE, timeout = rec.READATTEMPTTIMEOUT)
+    ser = serial.Serial(rec.SERIALPORT3, rec.BAUDRATE, timeout = rec.READATTEMPTTIMEOUT)
 
     countMiss = 0
     while True:

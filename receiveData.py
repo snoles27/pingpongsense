@@ -103,7 +103,6 @@ def readEventData(openPort, requestLabel = False) -> event:
             # print(eventData)
             return eventData
         else:
-            print("NO EVENT")
             return None
 
 def processLine(line) -> list[int]:
