@@ -34,6 +34,11 @@ VALUE_INDEX = 2
 
 
 class eventDataPoint:
+    """
+    Class to store data for a single data point of an event. 
+    value: (int) Magnitude of signle (a.u.)s
+    time: (int) time reported from microcontroller (us)
+    """
     def __init__(self, value:int, time:int):
         self.value = value
         self.time = time
@@ -42,6 +47,14 @@ class eventDataPoint:
         return "Time: " + str(self.time) + ", Value: " + str(self.value)
 
 class event:
+    """
+    A "ping pong event". All the information dumped from the microcontroller when the signal crosses a threshold
+    uuid: unique tag to name the even for later reference
+    label: Label for type of event. 
+    a0Data: list of eventDataPoints from a0 channel
+    a1Data: list of eventDataPoints from a1 channel
+    a2Data: list of eventDataPoints from a2 channel
+    """
     def __init__(self, uuid:str, a0Data:list[eventDataPoint] = [], a1Data:list[eventDataPoint] = [], a2Data:list[eventDataPoint] = [], label:str = NOLABELSTR):
         self.uuid = uuid
         self.label = label
@@ -53,6 +66,11 @@ class event:
         return "UUID-" + self.uuid[:UUIDABREIV] + "___Label-" + self.label
     
     def getChannelData(self, channelNumber:int):
+        """
+        channelNumber: (int) index of channel data is being requested for
+        returns list of times and list of values from channelNumber 
+        """
+
         times = []
         values = []
         if channelNumber == 0:
@@ -67,13 +85,14 @@ class event:
 
         return times, values
 
-
-
-def readEventData(openPort, requestLabel = False) -> event:
+def readEventData(openPort, requestLabel:bool = False) -> event:
+    """
     #openPort: open serial port object
     #returns: event object if event happens within READATTEMPTIMEOUT of function call. None if not. 
+    """
 
     with openPort as ser:
+   
         line = str(ser.readline())
         if len(line) >= MINLEN:
             uuid = line[UUIDSTART:LINEEND]
@@ -105,18 +124,25 @@ def readEventData(openPort, requestLabel = False) -> event:
         else:
             return None
 
-def processLine(line) -> list[int]:
+def processLine(line:str) -> list[int]:
+    """
+    line: (str) comma-space delimited list of integers
+    returns: list of integrers
+    """
 
     splitList = line[LINESTART:LINEEND].split(", ")
     return [int(ele) for ele in splitList]
     
-def _requestEventLabel(eventData:event, timeout = 10):
+def _requestEventLabel(eventData:event, timeout = 10) -> None:
     try:
         eventData.label = inputimeout("Label Data UUID: " + eventData.uuid[:8] + " (p = ping pong ball, n = not ping pong ball)", timeout=timeout)
     except Exception: 
         print("TIMEOUT: LABEL UNCHANGED")
 
-def plotEvent(eventData:event):
+def plotEvent(eventData:event) -> None:
+    """
+    Plot data from an event object 
+    """
 
     a0Times = [point.time for point in eventData.a0Data]
     a1Times = [point.time for point in eventData.a1Data]
@@ -137,12 +163,23 @@ def plotEvent(eventData:event):
     plt.legend()
     plt.show()
 
-def eventFileWrite(folderLoc:str, eventData:event):
+def eventFileWrite(folderLoc:str, eventData:event) -> None:
 
     fileName = str(eventData) + ".txt"
+    eventFileWriteGenericName(folderLoc, eventData, fileName)
+
+    return
+
+def eventFileWriteGenericName(folderLoc:str, eventData:event, fileName:str) -> None:
+    
+    """
+    Writes data from eventData to a new file in folderLoc with eventData.uuid in the title
+    """
+
     fullPath = folderLoc + fileName
 
     file = open(fullPath, mode = 'x')
+    file.write(fileName + "\n")
     file.write("UUID: " + eventData.uuid + "\nLabel: " + eventData.label + "\n")
 
     times, values = eventData.getChannelData(0)
@@ -159,6 +196,9 @@ def eventFileWrite(folderLoc:str, eventData:event):
 
 def eventFileRead(fullPath:str) -> event:
 
+    """
+    Reads data from fullPath and returns and event object 
+    """
     
     headerLines = []
     file = open(fullPath, 'r')
@@ -184,6 +224,10 @@ def eventFileRead(fullPath:str) -> event:
     return event(uuid=uuid, a0Data=axLists[0], a1Data=axLists[1], a2Data=axLists[2], label=label)
 
 def readAllEvents(folderLoc:str) -> list[event]:
+    
+    """
+    Returns list of all events located in the folderLoc folder
+    """
 
     events = []
     files = os.listdir(folderLoc)
@@ -197,24 +241,41 @@ def readAllEvents(folderLoc:str) -> list[event]:
 
     return events
     
+def readSingleEvent(openPort, showPlot:bool = True, save:bool = True, folderName:str = "Data/RawEventData/LocatingData/", numAttempt = 10) -> event:
 
-if __name__ == "__main__":
-    folderName = "Data/RawEventData/"
-    ser = serial.Serial(SERIALPORT1, BAUDRATE, timeout = READATTEMPTTIMEOUT)
+    """
+    Reads single event dump from the microcontroller if happens within certain number of read attempts
+    Allows options for plotting and saving event with user defined name 
+    HARDCODED FOLDER ENTER :(
+    """
 
     countMiss = 0
     while True:
-        eventData = readEventData(ser, requestLabel=True)
+        eventData = readEventData(openPort, requestLabel=False)
         if eventData is not None:
-            eventFileWrite(folderName, eventData)
+
+            if showPlot:
+                plotEvent(eventData)
+
+            if save:
+                print("Saving to folder " + folderName)
+                name = input("File Name: ")
+                eventFileWriteGenericName(folderName, eventData, name + ".txt")
+
+            break
+
         else:
             countMiss = countMiss + 1
-            if countMiss > 10:
+            if countMiss > numAttempt:
                 leave = input("Want to stop? (Y/N)")
                 if leave == "Y":
                     break
                 else:
                     countMiss = 0
-    # fullPath = folderName + str(eventData) + ".txt"
-    # dataRead = eventFileRead(fullPath)
-    # plotEvent(dataRead)
+
+if __name__ == "__main__":
+
+    folderName = "Data/RawEventData/"
+    ser = serial.Serial(SERIALPORT3, BAUDRATE, timeout = READATTEMPTTIMEOUT)
+
+    readSingleEvent(ser)

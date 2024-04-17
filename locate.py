@@ -1,0 +1,5 @@
+SENS1_X = 5.75
+SENS1_Y = 6.38
+
+SENS0_X = 51.5
+SENS0_Y = 8.5

@@ -76,6 +76,7 @@ void loop() {
     if(!notActive && activeIndex == stopIndex){
 
 //    //Print Header Info
+      uuid.seed(currentTime);
       uuid.generate();
       Serial.print("EVENT UUID: ");
       Serial.println(uuid);
