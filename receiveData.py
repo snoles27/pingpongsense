@@ -194,7 +194,7 @@ def eventFileWriteGenericName(folderLoc:str, eventData:event, fileName:str) -> N
     for i in range(0, len(times)):
         file.write("2, " + str(times[i]) + ", " + str(values[i]) + "\n")
 
-def eventFileRead(fullPath:str) -> event:
+def eventFileRead(fullPath:str, numHeaderLines = HEADERLINESNUM) -> event:
 
     """
     Reads data from fullPath and returns and event object 
@@ -202,7 +202,7 @@ def eventFileRead(fullPath:str) -> event:
     
     headerLines = []
     file = open(fullPath, 'r')
-    for i in range(0, HEADERLINESNUM):
+    for i in range(0, numHeaderLines):
         headerLines.append(str(file.readline()))
 
     uuid = str(headerLines[0])[:-1].replace("UUID: ", "")
