@@ -28,6 +28,8 @@ NOLABELSTR = "NO LABEL"
 
 #file info
 HEADERLINESNUM = 2
+UUID_LINE = 0
+LABEL_LINE = 1
 CHANNEL_INDEX = 0
 TIME_INDEX = 1
 VALUE_INDEX = 2
@@ -61,9 +63,13 @@ class event:
         self.a0Data = a0Data.copy()
         self.a1Data = a1Data.copy()
         self.a2Data = a2Data.copy()
+
+    def getShortUUID(self):
+        return self.uuid[:UUIDABREIV]
     
     def __str__(self):
-        return "UUID-" + self.uuid[:UUIDABREIV] + "___Label-" + self.label
+        return "UUID-" + self.getShortUUID() + "___Label-" + self.label
+
     
     def getChannelData(self, channelNumber:int):
         """
@@ -139,30 +145,6 @@ def _requestEventLabel(eventData:event, timeout = 10) -> None:
     except Exception: 
         print("TIMEOUT: LABEL UNCHANGED")
 
-def plotEvent(eventData:event) -> None:
-    """
-    Plot data from an event object 
-    """
-
-    a0Times = [point.time for point in eventData.a0Data]
-    a1Times = [point.time for point in eventData.a1Data]
-    a2Times = [point.time for point in eventData.a2Data]
-
-    a0Values = [point.value for point in eventData.a0Data]
-    a1Values = [point.value for point in eventData.a1Data]
-    a2Values = [point.value for point in eventData.a2Data]
-
-    fig = plt.gcf()
-    fig.canvas.manager.set_window_title(str(eventData))
-    plt.plot(a0Times, a0Values, label = "Sensor 0")
-    plt.plot(a1Times, a1Values, label = "Sensor 1")
-    plt.plot(a2Times, a2Values, label = "Sensor 2")
-    plt.title(str(eventData))
-    plt.xlabel("Time (us)")
-    plt.ylabel("Response (a.u.)")
-    plt.legend()
-    plt.show()
-
 def eventFileWrite(folderLoc:str, eventData:event) -> None:
 
     fileName = str(eventData) + ".txt"
@@ -194,7 +176,7 @@ def eventFileWriteGenericName(folderLoc:str, eventData:event, fileName:str) -> N
     for i in range(0, len(times)):
         file.write("2, " + str(times[i]) + ", " + str(values[i]) + "\n")
 
-def eventFileRead(fullPath:str, numHeaderLines = HEADERLINESNUM) -> event:
+def eventFileRead(fullPath:str, numHeaderLines = HEADERLINESNUM, uuidLine = UUID_LINE, labelLine = LABEL_LINE) -> event:
 
     """
     Reads data from fullPath and returns and event object 
@@ -205,8 +187,8 @@ def eventFileRead(fullPath:str, numHeaderLines = HEADERLINESNUM) -> event:
     for i in range(0, numHeaderLines):
         headerLines.append(str(file.readline()))
 
-    uuid = str(headerLines[0])[:-1].replace("UUID: ", "")
-    label = str(headerLines[1])[:-1].replace("Label: ", "")
+    uuid = str(headerLines[uuidLine])[:-1].replace("UUID: ", "")
+    label = str(headerLines[labelLine])[:-1].replace("Label: ", "")
 
     axLists = [[], [], []]
     while True:
@@ -241,7 +223,7 @@ def readAllEvents(folderLoc:str) -> list[event]:
 
     return events
     
-def readSingleEvent(openPort, showPlot:bool = True, save:bool = True, folderName:str = "Data/RawEventData/LocatingData/", numAttempt = 10) -> event:
+def readSingleEvent(openPort, save:bool = True, folderName:str = "Data/RawEventData/LocatingData/", numAttempt = 10) -> event:
 
     """
     Reads single event dump from the microcontroller if happens within certain number of read attempts
@@ -253,9 +235,6 @@ def readSingleEvent(openPort, showPlot:bool = True, save:bool = True, folderName
     while True:
         eventData = readEventData(openPort, requestLabel=False)
         if eventData is not None:
-
-            if showPlot:
-                plotEvent(eventData)
 
             if save:
                 print("Saving to folder " + folderName)
