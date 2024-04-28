@@ -6,6 +6,7 @@ import time
 
 SERIALPORT3 = "/dev/tty.usbmodem14301"
 SERIALPORT1 = "/dev/tty.usbmodem14201"
+SERIALPORT = "/dev/tty.usbmodem1101"
 BAUDRATE = 57600 #must match that set in eventRecordandOutput
 READATTEMPTTIMEOUT = 2.0
 
@@ -71,7 +72,7 @@ class event:
         return "UUID-" + self.getShortUUID() + "___Label-" + self.label
 
     
-    def getChannelData(self, channelNumber:int):
+    def getChannelData(self, channelNumber:int) -> tuple[list[int], list[int]]:
         """
         channelNumber: (int) index of channel data is being requested for
         returns list of times and list of values from channelNumber 
@@ -90,6 +91,23 @@ class event:
             times = [point.time for point in self.a2Data]
 
         return times, values
+    
+    def getChannelEvents(self, channelNumber:int) -> list[eventDataPoint]:
+
+        """
+        channelNumber: (int) index of channel data is being requested for
+        returns list eventDataPoints
+        """
+        
+        if channelNumber == 0:
+            return self.a0Data
+        elif channelNumber == 1:
+            return self.a1Data
+        elif channelNumber == 2: 
+            return self.a2Data
+        else:
+            raise("INVALID CHANNEL NUMBER")
+        
 
 def readEventData(openPort, requestLabel:bool = False) -> event:
     """
@@ -255,6 +273,6 @@ def readSingleEvent(openPort, save:bool = True, folderName:str = "Data/RawEventD
 if __name__ == "__main__":
 
     folderName = "Data/RawEventData/"
-    ser = serial.Serial(SERIALPORT3, BAUDRATE, timeout = READATTEMPTTIMEOUT)
+    ser = serial.Serial(SERIALPORT, BAUDRATE, timeout = READATTEMPTTIMEOUT)
 
     readSingleEvent(ser)
