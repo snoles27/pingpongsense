@@ -17,8 +17,8 @@ def newtonSolver(f:Callable[[np.ndarray, tuple], np.ndarray], df:Callable[[np.nd
     while magChange > thresh and numIter < iterLim:
 
         #calculate the function and the jacobian at this value of xi
-        fi = f(xi, args)
-        dfi = df(xi, args)
+        fi = f(xi, *args)
+        dfi = df(xi, *args)
 
         xi1 = newtonStep(xi, fi, dfi)
 
@@ -43,5 +43,30 @@ def newtonStep(xi:np.ndarray, fi:np.ndarray, dfi:np.ndarray) -> np.ndarray:
     return xi + dx
 
 
+def testFunction(x:np.ndarray, a:float, b:float) -> np.ndarray:
+    """
+    Function to test newton iterator
+    """
+
+    # return np.array([a * x[0]**2 + b * x[1]**2,
+    #                  x[0]**2 - b])
+    return np.array([x[0] - x[1] + b,
+                     x[1]**2 - a])
+
+def jac_testFunction(x:np.ndarray, a:float, b:float) -> np.ndarray:
+
+    return np.array([[1, -1], 
+                     [2*x[0], 0]])
+
+
 if __name__ == "__main__":
-    pass
+    a = 1
+    b = 3
+    x0 = np.array([1,-0.1])
+
+    args = (a,b)
+
+    print(testFunction(x0, *args))
+    print(jac_testFunction(x0, *args))
+
+    print(newtonSolver(testFunction, jac_testFunction, args, x0))
