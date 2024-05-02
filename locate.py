@@ -1,5 +1,6 @@
 import receiveData as rd
 import numpy as np
+import newton as newt
 
 
 
@@ -62,13 +63,78 @@ def getIndexFirstGreater(numbers:list[int], thresh:int) -> int:
 
     return index
 
+def zeroAtEvent(x:np.ndarray, sensorLoc:np.ndarray, dt:np.ndarray, speed:float) -> np.ndarray:
+    """
+    Multivarite function that should equal zero when the equation is solved
+    x: [x_e, y_e]. 2x1 np array encoding event position
+    sensorLoc: 3x2 np array with each sensor locaiton 
+    dt: 2x1 np array [dt10, dt20]
+    speed: speed of sound in table with units matching x, sensorLoc and dt
+    """
+
+    rho_0 = distance(x, sensorLoc[0, :])
+    rho_1 = distance(x, sensorLoc[1, :])
+    rho_2 = distance(x, sensorLoc[2, :])
+
+    return np.array([
+        rho_1 - rho_0 - speed * dt[0],
+        rho_2 - rho_0 - speed * dt[1]
+    ])
+
+def jac_zeroAtEvent(x:np.ndarray, sensorLoc:np.ndarray, dt:np.ndarray, speed:float) -> np.ndarray:
+    """
+    returns jacobian of zeroAtEvent evaluated at x
+    """
+    rho_0 = distance(x, sensorLoc[0, :])
+    rho_1 = distance(x, sensorLoc[1, :])
+    rho_2 = distance(x, sensorLoc[2, :])
+
+    return np.array([
+        [(x[0] - sensorLoc[1,0])/rho_1 - (x[0] - sensorLoc[0,0])/rho_0, (x[1] - sensorLoc[1,1])/rho_1 - (x[1] - sensorLoc[0,1])/rho_0],
+        [(x[0] - sensorLoc[2,0])/rho_2 - (x[0] - sensorLoc[0,0])/rho_0, (x[1] - sensorLoc[2,1])/rho_2 - (x[1] - sensorLoc[0,1])/rho_0]
+    ])
+
+def solveLocation(dt:np.ndarray, sensorLoc:np.ndarray, speed:float, guess = np.array([10,10])) -> np.ndarray:
+
+    """
+    envoke newtons method to solve for event location. See above functions for what the arguments mean <fill later>
+    """
+
+    args = (sensorLoc, dt, speed)
+
+    return newt.newtonSolver(zeroAtEvent, jac_zeroAtEvent, args=args, x0=guess, verbose=True)
+
+
+def distance(xf:np.ndarray, x0:np.ndarray) -> np.ndarray:
+    "Returns distance between two points, xf and x0"
+
+    return np.linalg.norm(xf - x0)
+
 if __name__ == "__main__":
 
-    threshMult = 8
-    data = rd.eventFileRead("Data/RawEventData/LocatingData/6in_(9.0,6.4)_1.txt", numHeaderLines=3, uuidLine=1, labelLine=2)
-    t1, ut = calculateSigTime(data, 1, triggerMultiple=threshMult)
-    t0, ut = calculateSigTime(data, 0, triggerMultiple=threshMult)
 
-    print(t1 - t0)
+    # sensorLocList = np.array([[SENS0_X, SENS0_Y],
+    #                           [SENS1_X, SENS1_Y],
+    #                           [SENS2_X, SENS2_Y]])
+
+    sensorLocList = np.array([[0, 0],
+                              [3, 0],
+                              [-1, 0]])
+    
+    event = np.array([1,0])
+    dt = np.array([1,1])
+    c = 1
+    print(solveLocation(dt, sensorLocList, c, guess=np.array([0,0])))
+
+
+    
+    
+
+    # threshMult = 8
+    # data = rd.eventFileRead("Data/RawEventData/LocatingData/6in_(9.0,6.4)_1.txt", numHeaderLines=3, uuidLine=1, labelLine=2)
+    # t1, ut = calculateSigTime(data, 1, triggerMultiple=threshMult)
+    # t0, ut = calculateSigTime(data, 0, triggerMultiple=threshMult)
+
+    # print(t1 - t0)
 
     

@@ -3,7 +3,7 @@ import warnings
 from numpy import linalg 
 from typing import Callable
 
-def newtonSolver(f:Callable[[np.ndarray, tuple], np.ndarray], df:Callable[[np.ndarray, tuple], np.ndarray], args:tuple, x0:np.ndarray, thresh = 1e-12, iterLim = 100) -> np.ndarray:
+def newtonSolver(f:Callable[[np.ndarray, tuple], np.ndarray], df:Callable[[np.ndarray, tuple], np.ndarray], args:tuple, x0:np.ndarray, thresh = 1e-12, iterLim = 200, verbose = False) -> np.ndarray:
     """
     newton solver that finds solutions to f(x, *args) = 0 where f returns size ax1 and x is size bx1
     f: function looking for the roots of. Function should accept nd.array of size b as an argument
@@ -20,12 +20,16 @@ def newtonSolver(f:Callable[[np.ndarray, tuple], np.ndarray], df:Callable[[np.nd
         fi = f(xi, *args)
         dfi = df(xi, *args)
 
+        if verbose:
+            print(str(numIter) + ": magChange=" + "{:.3e}".format(magChange) + " xi=" + str(xi) + " fi=" + str(fi) + " dfi=" + str(dfi))
+
         xi1 = newtonStep(xi, fi, dfi)
 
         #do some checks
         magChange = linalg.norm(xi1 - xi)
-        numIter += 1
 
+
+        numIter += 1
         xi = xi1
     
     if numIter >= iterLim:
@@ -62,11 +66,11 @@ def jac_testFunction(x:np.ndarray, a:float, b:float) -> np.ndarray:
 if __name__ == "__main__":
     a = 1
     b = 3
-    x0 = np.array([1,-0.1])
+    x0 = np.array([.1,-0.1])
 
     args = (a,b)
 
     print(testFunction(x0, *args))
     print(jac_testFunction(x0, *args))
 
-    print(newtonSolver(testFunction, jac_testFunction, args, x0))
+    print(newtonSolver(testFunction, jac_testFunction, args, x0, verbose=False))
