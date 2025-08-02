@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 
 
-def plotEvent(eventData:rd.event) -> None:
+def plotEvent(eventData:rd.event, ax:matplotlib.axes.Axes) -> None:
     """
     Plot data from an event object 
     """
@@ -19,16 +19,13 @@ def plotEvent(eventData:rd.event) -> None:
     a1Values = [point.value for point in eventData.a1Data]
     a2Values = [point.value for point in eventData.a2Data]
 
-    fig = plt.gcf()
-    fig.canvas.manager.set_window_title(str(eventData))
-    plt.plot(a0Times, a0Values, label = "Sensor 0")
-    plt.plot(a1Times, a1Values, label = "Sensor 1")
-    plt.plot(a2Times, a2Values, label = "Sensor 2")
-    plt.title(str(eventData))
-    plt.xlabel("Time (us)")
-    plt.ylabel("Response (a.u.)")
-    plt.legend()
-    plt.show()
+    ax.plot(a0Times, a0Values, label = "Sensor 0")
+    ax.plot(a1Times, a1Values, label = "Sensor 1")
+    ax.plot(a2Times, a2Values, label = "Sensor 2")
+    ax.set_title(str(eventData))
+    ax.set_xlabel("Time (us)")
+    ax.set_ylabel("Response (a.u.)")
+    ax.legend()
 
 def overlaySingleChannelPlot(events:list[rd.event], chanToPlot:int, showPlt:bool = True) -> tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]:
     """
