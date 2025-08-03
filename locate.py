@@ -33,7 +33,7 @@ def calculateSigTime(event:rd.Event, channel:int, baseRange:list[int] = [MIN_PRE
     default_uncertainty = 125 #setting the default uncertainty at the sample rate. Might be possible to get below this if you are smart
 
     # get raw time and value data 
-    sensor_data = event.get_channel_events(channel)
+    sensor_data = event.get_sensor_data(channel)
     times = sensor_data.time
     vals = sensor_data.values
 

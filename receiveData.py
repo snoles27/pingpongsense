@@ -164,7 +164,7 @@ class Event:
         sensor_data = self.data[channel_number]
         return sensor_data.time, sensor_data.values
     
-    def get_channel_events(self, channel_number: int) -> SensorData:
+    def get_sensor_data(self, channel_number: int) -> SensorData:
         """
         channel_number: (int) index of channel data is being requested for
         returns SensorData object for the channel
