@@ -1,4 +1,5 @@
 .venv
-.DS_Store
-Data*
+*.DS_Store
+Data/Photos/*
+Data/Oscilliscope 110423/*
 __pycache__

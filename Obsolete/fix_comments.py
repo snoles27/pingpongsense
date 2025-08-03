@@ -8,7 +8,7 @@ import os
 def fix_comments():
     """Add '#' to comment lines in all .txt files in RawEventData."""
     
-    folder = "Data/RawEventData/"
+    folder = "Data/RawEventData/LocatingData/"
     
     # Get all .txt files
     files = [f for f in os.listdir(folder) if f.endswith('.txt')]
