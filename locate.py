@@ -1,6 +1,5 @@
-import receiveData as rd
+import ReceiveData as rd
 import numpy as np
-import plottingTools
 import matplotlib.pyplot as plt
 import matplotlib
 import matplotlib.patches as patches
@@ -23,7 +22,7 @@ SPEED_UNCERT = .02 #estimate of speed uncertainty
 MIN_PRERANGE = -5000
 MAX_PRERANGE = -2000
 
-def calculateSigTime(event:rd.event, channel:int, baseRange:list[int] = [MIN_PRERANGE, MAX_PRERANGE], triggerMultiple:int = 5) -> tuple[int, int]:
+def calculateSigTime(event:rd.Event, channel:int, baseRange:list[int] = [MIN_PRERANGE, MAX_PRERANGE], triggerMultiple:int = 5) -> tuple[int, int]:
     
     """
     Function to determine time when signal reaches the sensor
@@ -34,9 +33,9 @@ def calculateSigTime(event:rd.event, channel:int, baseRange:list[int] = [MIN_PRE
     default_uncertainty = 125 #setting the default uncertainty at the sample rate. Might be possible to get below this if you are smart
 
     # get raw time and value data 
-    events = event.getChannelEvents(channel)
-    times = [event.time for event in events]
-    vals = [event.value for event in events]
+    sensor_data = event.get_channel_events(channel)
+    times = sensor_data.time
+    vals = sensor_data.values
 
     indexStart = getIndexFirstGreater(times, baseRange[0])
     indexEnd = getIndexFirstGreater(times, baseRange[1])
@@ -51,7 +50,7 @@ def calculateSigTime(event:rd.event, channel:int, baseRange:list[int] = [MIN_PRE
     #find first instance of zeroCenteredVals that is greater than some multiple of the noise
     indexEvent = getIndexFirstGreater(np.abs(zeroCenteredVals), noiseLevel * triggerMultiple)
     
-    return (events[indexEvent].time, default_uncertainty)
+    return (times[indexEvent], default_uncertainty)
 
 def getIndexFirstGreater(numbers:list[int], thresh:int) -> int: 
     """
@@ -117,7 +116,7 @@ def distance(xf:np.ndarray, x0:np.ndarray) -> np.ndarray:
 
     return np.linalg.norm(xf - x0)
 
-def plotEventWithSignalTimes(eventData:rd.event, t0:float, ut0:float, t1:float, ut1:float, t2:float, ut2:float) -> None:
+def plotEventWithSignalTimes(eventData:rd.Event, t0:float, ut0:float, t1:float, ut1:float, t2:float, ut2:float) -> None:
     """
     Plot event data with calculated signal times overlaid as semi-transparent rectangles.
     The rectangle colors match the default matplotlib color cycle used in plottingTools.plotEvent.
@@ -126,7 +125,7 @@ def plotEventWithSignalTimes(eventData:rd.event, t0:float, ut0:float, t1:float, 
     colors = ['#1f77b4', '#ff7f0e', '#2ca02c']  # Blue, Orange, Green
     
     fig, ax = plt.subplots()
-    plottingTools.plotEvent(eventData, ax)
+    eventData.plot(ax)
     
     # Get the y-axis limits to determine rectangle height
     y_min, y_max = ax.get_ylim()
@@ -272,7 +271,7 @@ if __name__ == "__main__":
 
     testFileName = "Data/RawEventData/LocatingData/6in_(18.0,6.4)_0.txt"
 
-    testEventData = rd.eventFileRead(fullPath=testFileName, numHeaderLines=3, uuidLine=1, labelLine=2)
+    testEventData = rd.event_file_read(full_path=testFileName)
     
     t0, ut0 = calculateSigTime(testEventData, channel=0, triggerMultiple=triggerMultiple)
     t1, ut1 = calculateSigTime(testEventData, channel=1, triggerMultiple=triggerMultiple)
@@ -292,7 +291,7 @@ if __name__ == "__main__":
     
     testFileName = "Data/RawEventData/LocatingData/6in_(18.0,6.4)_1.txt"
 
-    testEventData = rd.eventFileRead(fullPath=testFileName, numHeaderLines=3, uuidLine=1, labelLine=2)
+    testEventData = rd.event_file_read(full_path=testFileName)
     
     t0, ut0 = calculateSigTime(testEventData, channel=0, triggerMultiple=triggerMultiple)
     t1, ut1 = calculateSigTime(testEventData, channel=1, triggerMultiple=triggerMultiple)

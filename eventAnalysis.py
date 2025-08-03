@@ -2,8 +2,7 @@
 import scipy
 import numpy as np
 import matplotlib.pyplot as plt
-import receiveData as rec
-import plottingTools
+import ReceiveData as rec
 
 class singeChannelFFT: 
     def __init__(self, freqs:list[float], mags:list[float], label:str):
@@ -12,7 +11,7 @@ class singeChannelFFT:
         self.label = label
 
 #obsolete
-def compareFFTMetric(events:list[rec.event], metric):
+def compareFFTMetric(events:list[rec.Event], metric):
     #events: list of event objects
     #metric: function that takes two lists metric(freqs, mags) and returns some value characterizing the FFT
 
@@ -36,9 +35,9 @@ def compareFFTMetric(events:list[rec.event], metric):
         
     return metricResults_p, metricResults_n
 
-def fftSelect(eventData:rec.event, channelNumber:int, plot = True, nullAvg = True):
+def fftSelect(eventData:rec.Event, channelNumber:int, plot = True, nullAvg = True):
 
-    times, values = eventData.getChannelData(channelNumber)
+    times, values = eventData.get_channel_data(channelNumber)
     freqs, mags = dataFft(times, values, plot=False, nullAvg=nullAvg)
     if plot:
         fig = plt.gcf()
@@ -51,7 +50,7 @@ def fftSelect(eventData:rec.event, channelNumber:int, plot = True, nullAvg = Tru
 
     return freqs, mags
 
-def fftOverlay(eventData:rec.event):
+def fftOverlay(eventData:rec.Event):
     
     freqs0, values0 = fftSelect(eventData, 0, plot = False)
     freqs1, values1 = fftSelect(eventData, 1, plot=False)
@@ -101,7 +100,7 @@ def dataFft(times:list[int], values:list[int], nullAvg = True, plot = False):
 
     return freqs, mags
 
-def applyMetricToEvents(events:list[rec.event], metric):
+def applyMetricToEvents(events:list[rec.Event], metric):
     #events: list of event objects
     #metric: function that takes an event and returns some value characterizing the event
 
@@ -133,7 +132,7 @@ def magRMSRange(freqs, mags, minFreq, maxFreq):
 
     return rangeRMS/totalRMS
 
-def meanChannelMagRMSRange(event:rec.event, minFreq, maxFreq):
+def meanChannelMagRMSRange(event:rec.Event, minFreq, maxFreq):
 
     fftList:list[singeChannelFFT] = []
     freqs, mags = fftSelect(event, 0, plot=False, nullAvg=True)
@@ -149,26 +148,26 @@ def meanChannelMagRMSRange(event:rec.event, minFreq, maxFreq):
 
     return np.mean(rmsList)
 
-def evaluateMetric(events:list[rec.event], metric, cost):
+def evaluateMetric(events:list[rec.Event], metric, cost):
 
     presults, nresults = applyMetricToEvents(events, metric)
     return cost(presults, nresults)
 
-def classify_RMS(event:rec.event, minFreq, maxFreq, thresh) -> bool:
+def classify_RMS(event:rec.Event, minFreq, maxFreq, thresh) -> bool:
     return meanChannelMagRMSRange(event, minFreq, maxFreq) > thresh
 
 if __name__ == "__main__":
 
 
     folderName = "Data/RawEventData/"
-    event1 = rec.eventFileRead(folderName + "LocatingData/6in_(18.0,6.4)_0.txt", numHeaderLines=3, uuidLine=1, labelLine=2)
-    event2 = rec.eventFileRead(folderName + "LocatingData/6in_(18.0,6.4)_1.txt", numHeaderLines=3, uuidLine=1, labelLine=2)
+    event1 = rec.event_file_read(folderName + "LocatingData/6in_(18.0,6.4)_0.txt")
+    event2 = rec.event_file_read(folderName + "LocatingData/6in_(18.0,6.4)_1.txt")
 
     channel = 2
     fig, ax = plt.subplots()
-    plottingTools.plotEvent(event1, ax)
+    event1.plot(ax)
     plt.show()
-    x,t = event1.getChannelData(channel)
+    x,t = event1.get_channel_data(channel)
     x = np.array(x)
     t = np.array(t)
 
