@@ -1,8 +1,9 @@
 
-import scipy as sp
+import scipy
 import numpy as np
 import matplotlib.pyplot as plt
 import receiveData as rec
+import plottingTools
 
 class singeChannelFFT: 
     def __init__(self, freqs:list[float], mags:list[float], label:str):
@@ -69,8 +70,7 @@ def fftOverlay(eventData:rec.event):
 
 def dataFft(times:list[int], values:list[int], nullAvg = True, plot = False):
     
-    if len(times) != len(values):
-        print("NONEQUAL VECTOR SIZES")
+    assert len(times) == len(values), "Vector sizes are not equal"
 
     N = len(times)
     timeSeconds = [usTime * 1e-6 for usTime in times]
@@ -78,7 +78,9 @@ def dataFft(times:list[int], values:list[int], nullAvg = True, plot = False):
     for i in range(1, len(timeSeconds)):
         timeDeltas.append(timeSeconds[i]-timeSeconds[i-1])
     avgSampleSpacing = np.average(timeDeltas)
-    #print("Sample Spacing: " + str(avgSampleSpacing))
+    stdSampleSpacing = np.std(timeDeltas)
+    print("Sample Spacing: " + str(avgSampleSpacing) + " +/- " + str(stdSampleSpacing))
+    print("Percent Variation: " + str(stdSampleSpacing/avgSampleSpacing))
 
     if nullAvg:
         average = np.average(values)
@@ -86,8 +88,8 @@ def dataFft(times:list[int], values:list[int], nullAvg = True, plot = False):
     else:
         amps = values.copy()
    
-    ffts = sp.fft.fft(amps, N, norm = "forward")
-    freqs = sp.fft.fftfreq(N, avgSampleSpacing)
+    ffts = scipy.fft.fft(amps, N, norm = "forward")
+    freqs = scipy.fft.fftfreq(N, avgSampleSpacing)
     mags = abs(ffts)
     phase = np.angle(ffts)
 
@@ -157,66 +159,142 @@ def classify_RMS(event:rec.event, minFreq, maxFreq, thresh) -> bool:
 
 if __name__ == "__main__":
 
+
     folderName = "Data/RawEventData/"
-    def rmsCost(presults, nresults) : return (1 - (np.min(presults) - np.max(nresults))/(np.max(nresults)))
-    allEvents = rec.readAllEvents(folderName)
+    event1 = rec.eventFileRead(folderName + "LocatingData/6in_(18.0,6.4)_0.txt", numHeaderLines=3, uuidLine=1, labelLine=2)
+    event2 = rec.eventFileRead(folderName + "LocatingData/6in_(18.0,6.4)_1.txt", numHeaderLines=3, uuidLine=1, labelLine=2)
 
-    # minFreq = 1415
-    # maxFreq = 1663
-
-    ## 11/12/23 results
-    # minFreq = 1163.157894736842
-    # maxFreq = 1915.7894736842106
-    # mid = 0.31597582047520656
-
-    # def rms(freqs, mags) : return magRMSRange(freqs, mags, minFreq, maxFreq)
-    # def channelRMS(event) : return meanChannelMagRMSRange(event, minFreq, maxFreq)
-   
-    # presults, nresults = applyMetricToEvents(allEvents, channelRMS)
-
-    # plt.vlines(presults, -1, 1, colors="blue")
-    # plt.vlines(nresults, -1, 1, colors="red")
-    # plt.vlines(0.312, -1, 1, colors="black")
-    # plt.show()
-
-
-#### Evaluating a bunch of possible frequencies 
-    N = 20
-    minFreqs = np.linspace(700, 1500, N)
-    maxFreqs = np.linspace(1200, 2000, N)
-
-    results = np.zeros((N,N))
-    for i in range(0,N):
-        for j in range(0,N):
-            minfreq = minFreqs[i]
-            maxfreq = maxFreqs[j]
-            if minfreq >= maxfreq-20: #not allowed condition cost --> inf
-                results[i][j] = np.inf
-            else:
-                def eval(event) : return meanChannelMagRMSRange(event, minfreq, maxfreq)
-                results[i][j] = evaluateMetric(allEvents, eval, rmsCost)
-            
-    #Dislaying results and plotting the splits on the best one
-    print(results)
-    bestIndex = np.argmin(results)
-    i = int(np.floor(bestIndex/N))
-    j = bestIndex % N
-    print(bestIndex)
-    print(i)
-    print(j)
-    print(results[i][j])
-    minFreq = minFreqs[i]
-    maxFreq = maxFreqs[j]
-
-    print("Min Freq: " + str(minFreq))
-    print("Max Freq: " + str(maxFreq))
-    def channelRMS(event) : return meanChannelMagRMSRange(event, minFreq, maxFreq)
-    presults, nresults = applyMetricToEvents(allEvents, channelRMS)
-
-    print("mid: " + str((min(presults) + max(nresults))/2))
-    plt.vlines(presults, -1, 1, colors="blue")
-    plt.vlines(nresults, -1, 1, colors="red")
+    channel = 2
+    fig, ax = plt.subplots()
+    plottingTools.plotEvent(event1, ax)
     plt.show()
+    x,t = event1.getChannelData(channel)
+    x = np.array(x)
+    t = np.array(t)
+
+    x = x[15:-250]
+    t = t[15:-250]
+    t_s = t * 1e-6
+
+    Tx,uTx = event1.sample_rate(channel)
+    fs = 1/Tx * 1e6
+    N = len(x)
+
+    window_length = 6
+    g_std = 2
+    # window = scipy.signal.windows.gaussian(
+    #     M=window_length,
+    #     std =g_std,
+    #     sym=True
+    # )
+    window = scipy.signal.windows.boxcar(window_length)
+    SFT = scipy.signal.ShortTimeFFT(
+        win=window,
+        hop=3,
+        fs=fs,
+        fft_mode='centered',
+        mfft=None,
+        scale_to='magnitude'
+    )
+
+    Sx = SFT.stft(x)
+    t_lo,t_hi,f_lo,f_hi = SFT.extent(
+        n=N,
+        axes_seq='tf'
+    )
+
+    fig1, ax1 = plt.subplots(figsize=(6., 4.)) 
+
+    ax1.set_title(rf"STFT ({SFT.m_num*SFT.T:g}$\,us$ Gaussian window, " +
+                rf"$\sigma_t={g_std*SFT.T}\,$us)")
+    ax1.set(xlabel=f"Time $t$ in microseconds ({SFT.p_num(N)} slices, " +
+                rf"$\Delta t = {SFT.delta_t:g}\,$us)",
+            ylabel=f"Freq. $f$ in MHz ({SFT.f_pts} bins, " +
+                rf"$\Delta f = {SFT.delta_f:g}\,$MHz)",
+            xlim=(t_lo, t_hi))
+
+    im1 = ax1.imshow(abs(Sx), origin='lower', aspect='auto',
+                    extent=SFT.extent(N), cmap='viridis')
+    fig1.colorbar(im1, label="Magnitude $|S_x(t, f)|$")
+
+    # Shade areas where window slices stick out to the side:
+    for t0_, t1_ in [(t_lo, SFT.lower_border_end[0] * SFT.T),
+                    (SFT.upper_border_begin(N)[0] * SFT.T, t_hi)]:
+        ax1.axvspan(t0_, t1_, color='w', linewidth=0, alpha=.2)
+    for t_ in [0, N * SFT.T]:  # mark signal borders with vertical line:
+        ax1.axvline(t_, color='y', linestyle='--', alpha=0.5)
+    ax1.legend()
+    fig1.tight_layout()
+    plt.show()
+
+
+
+
+
+   
+
+
+#### Older things pre 8/1/2025
+#     folderName = "Data/RawEventData/"
+#     def rmsCost(presults, nresults) : return (1 - (np.min(presults) - np.max(nresults))/(np.max(nresults)))
+#     allEvents = rec.readAllEvents(folderName)
+
+#     # minFreq = 1415
+#     # maxFreq = 1663
+
+#     ## 11/12/23 results
+#     # minFreq = 1163.157894736842
+#     # maxFreq = 1915.7894736842106
+#     # mid = 0.31597582047520656
+
+#     # def rms(freqs, mags) : return magRMSRange(freqs, mags, minFreq, maxFreq)
+#     # def channelRMS(event) : return meanChannelMagRMSRange(event, minFreq, maxFreq)
+   
+#     # presults, nresults = applyMetricToEvents(allEvents, channelRMS)
+
+#     # plt.vlines(presults, -1, 1, colors="blue")
+#     # plt.vlines(nresults, -1, 1, colors="red")
+#     # plt.vlines(0.312, -1, 1, colors="black")
+#     # plt.show()
+
+
+# #### Evaluating a bunch of possible frequencies 
+#     N = 20
+#     minFreqs = np.linspace(700, 1500, N)
+#     maxFreqs = np.linspace(1200, 2000, N)
+
+#     results = np.zeros((N,N))
+#     for i in range(0,N):
+#         for j in range(0,N):
+#             minfreq = minFreqs[i]
+#             maxfreq = maxFreqs[j]
+#             if minfreq >= maxfreq-20: #not allowed condition cost --> inf
+#                 results[i][j] = np.inf
+#             else:
+#                 def eval(event) : return meanChannelMagRMSRange(event, minfreq, maxfreq)
+#                 results[i][j] = evaluateMetric(allEvents, eval, rmsCost)
+            
+#     #Dislaying results and plotting the splits on the best one
+#     print(results)
+#     bestIndex = np.argmin(results)
+#     i = int(np.floor(bestIndex/N))
+#     j = bestIndex % N
+#     print(bestIndex)
+#     print(i)
+#     print(j)
+#     print(results[i][j])
+#     minFreq = minFreqs[i]
+#     maxFreq = maxFreqs[j]
+
+#     print("Min Freq: " + str(minFreq))
+#     print("Max Freq: " + str(maxFreq))
+#     def channelRMS(event) : return meanChannelMagRMSRange(event, minFreq, maxFreq)
+#     presults, nresults = applyMetricToEvents(allEvents, channelRMS)
+
+#     print("mid: " + str((min(presults) + max(nresults))/2))
+#     plt.vlines(presults, -1, 1, colors="blue")
+#     plt.vlines(nresults, -1, 1, colors="red")
+#     plt.show()
 #######
 
     # 

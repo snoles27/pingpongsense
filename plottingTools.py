@@ -3,6 +3,7 @@ import matplotlib.figure
 import receiveData as rd
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 
@@ -56,6 +57,70 @@ def overlaySingleChannelPlot(events:list[rd.event], chanToPlot:int, showPlt:bool
     
     return fig, ax
 
+def plot_signal_and_derivative(event:rd.event, chanToPlot:int, ax:matplotlib.axes.Axes, showPlt:bool = True) -> tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]:
+    """
+    Plot a channel from an event and overlay its derivative.
+    
+    Args:
+        event: event object containing the data
+        chanToPlot: index of channel to plot (0, 1, or 2)
+        ax: matplotlib axes to plot on
+        showPlt: whether to show the plot immediately
+    
+    Returns:
+        tuple of (figure, axes) objects
+    """
+    # Get the channel data
+    times, values = event.getChannelData(chanToPlot)
+    
+    # Convert to numpy arrays for easier manipulation
+    times = np.array(times)
+    values = np.array(values)
+    
+    # Calculate the derivative using finite differences
+    # Use central differences for interior points, forward/backward for endpoints
+    derivative = np.zeros_like(values, dtype=float)
+    derivative = derivative[:-1]
+    times_derivative = np.zeros_like(derivative)
+
+    #interio points
+    for i in range(0, len(values)-1):
+        derivative[i] = (values[i+1] - values[i]) / (times[i+1] - times[i])
+        times_derivative[i] = (times[i+1] + times[i]) / 2
+       
+        # Create twin axes for the derivative
+    ax2 = ax.twinx()
+    
+    # Plot the original signal on the primary y-axis
+    line1 = ax.plot(times, values, label=f'Channel {chanToPlot}', linewidth=2, color='blue')
+    
+    # Plot the derivative on the secondary y-axis
+    line2 = ax2.plot(times_derivative, derivative, label=f'Channel {chanToPlot} Derivative', 
+                    linestyle='--', linewidth=1.5, color='red')
+    
+    # Set labels and title
+    ax.set_xlabel('Time (μs)')
+    ax.set_ylabel('Amplitude (a.u.)', color='blue')
+    ax2.set_ylabel('Derivative (a.u./μs)', color='red')
+    ax.set_title(f'Signal and Derivative - {event.getShortUUID()}')
+    
+    # Set grid on primary axes
+    ax.grid(True, alpha=0.3)
+    
+    # Combine legends from both axes
+    lines1, labels1 = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+    
+    # Color the y-axis labels to match the data
+    ax.tick_params(axis='y', labelcolor='blue')
+    ax2.tick_params(axis='y', labelcolor='red')
+    
+    if showPlt:
+        plt.show()
+    
+    return ax.figure, ax
+
 def manyEventSubPlot(events:list[rd.event], channelsToPlot:list[int], showPlot:bool = True, timeRangeMicroSeconds:list[int] = [-3500, 3500]) -> tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]:
 
     """
@@ -105,12 +170,12 @@ if __name__ == "__main__":
 
     xFullList = ["9.0",
                 "12.0",
-                "18.0", 
-                "24.0",
-                "30.0", 
-                "36.0",
-                "42.0", 
-                "48.0"]
+                "18.0", ]
+                # "24.0",
+                # "30.0", 
+                # "36.0",
+                # "42.0", 
+                #"48.0"]
     
     indexesToPlot = range(0, len(xFullList))
     # indexesToPlot = [3,4,5]
@@ -120,4 +185,7 @@ if __name__ == "__main__":
 
     eventList = [rd.eventFileRead(path, numHeaderLines=3, uuidLine=1, labelLine=2) for path in fullStrList]
     manyEventSubPlot(eventList, channelsToPlot=[0,1])
+
+    fig, ax = plt.subplots()
+    plot_signal_and_derivative(eventList[0], chanToPlot=0, ax=ax, showPlt=True)
     

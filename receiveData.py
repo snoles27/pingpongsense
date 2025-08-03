@@ -3,6 +3,7 @@ from inputimeout import inputimeout
 import matplotlib.pyplot as plt
 import os
 import time
+import numpy as np
 
 SERIALPORT3 = "/dev/tty.usbmodem14301"
 SERIALPORT1 = "/dev/tty.usbmodem14201"
@@ -107,7 +108,18 @@ class event:
             return self.a2Data
         else:
             raise("INVALID CHANNEL NUMBER")
+
+    def sample_rate(self, channel:int) -> tuple[float, float]: 
+        """
+        channel: (int) index of channel data is being requested for
+        returns: (float, float) average sample rate and standard deviation of sample rate
+        """
         
+        times,_ = self.getChannelData(channel)
+        timeDeltas = np.diff(times)
+        avgSampleSpacing = np.mean(timeDeltas)
+        stdSampleSpacing = np.std(timeDeltas)
+        return avgSampleSpacing, stdSampleSpacing
 
 def readEventData(openPort, requestLabel:bool = False) -> event:
     """

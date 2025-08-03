@@ -270,7 +270,7 @@ if __name__ == "__main__":
                             [SENS2_X, SENS2_Y]])
 
 
-    testFileName = "Data/RawEventData/LocatingData/6in_(36.0,6.4)_0.txt"
+    testFileName = "Data/RawEventData/LocatingData/6in_(18.0,6.4)_0.txt"
 
     testEventData = rd.eventFileRead(fullPath=testFileName, numHeaderLines=3, uuidLine=1, labelLine=2)
     
@@ -281,7 +281,6 @@ if __name__ == "__main__":
     t10 = t1-t0 
     t20 = t2-t0 
 
-    # Plot the event data with calculated signal times overlaid
     plotEventWithSignalTimes(testEventData, t0, ut0, t1, ut1, t2, ut2)
 
     soln = solveLocation(np.array([t10,t20]), sensorLoc=sensorLocList, speed=WAVE_SPEED)
@@ -289,12 +288,24 @@ if __name__ == "__main__":
     print(soln.cov_x)
     
     # Plot the location solution
-    ax = plotLocationSolution(sensorLocList, soln.x, soln.cov_x, data_label="test1")
+    ax = plotLocationSolution(sensorLocList, soln.x, soln.cov_x, data_label="test0")
     
-    # Example of overlaying multiple solutions
-    # You can call the function multiple times with the same axes
-    # ax = plotLocationSolution(sensorLocList, another_solution, another_cov, 
-    #                          ax=ax, data_label="Test 2", plot_sensors=False)
+    testFileName = "Data/RawEventData/LocatingData/6in_(18.0,6.4)_1.txt"
+
+    testEventData = rd.eventFileRead(fullPath=testFileName, numHeaderLines=3, uuidLine=1, labelLine=2)
+    
+    t0, ut0 = calculateSigTime(testEventData, channel=0, triggerMultiple=triggerMultiple)
+    t1, ut1 = calculateSigTime(testEventData, channel=1, triggerMultiple=triggerMultiple)
+    t2, ut2 = calculateSigTime(testEventData, channel=2, triggerMultiple=triggerMultiple)
+
+    t10 = t1-t0 
+    t20 = t2-t0 
+
+    soln = solveLocation(np.array([t10,t20]), sensorLoc=sensorLocList, speed=WAVE_SPEED)
+    print(soln.x)
+    print(soln.cov_x)
+
+    plotLocationSolution(sensorLocList, soln.x, soln.cov_x, data_label="test1", ax=ax, plot_sensors=False)
     
     plt.tight_layout()
     plt.show()
