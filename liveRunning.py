@@ -1,4 +1,4 @@
-import eventAnalysis as anl
+import EventAnalysis as anl
 import ReceiveData as rec
 import serial
 

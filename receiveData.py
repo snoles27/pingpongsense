@@ -46,9 +46,10 @@ class SensorData:
     values: numpy array of sensor readings (arbitrary units)
     """
     def __init__(self, time: np.ndarray, values: np.ndarray):
-        assert len(time) == len(values), f"Time and values arrays must have same length. Got {len(time)} and {len(values)}"
-        self.time = time.copy()
-        self.values = values.copy()
+        # Ensure time and values are numpy arrays
+        self.time = np.array(time, copy=True)
+        self.values = np.array(values, copy=True)
+        assert len(self.time) == len(self.values), f"Time and values arrays must have same length. Got {len(self.time)} and {len(self.values)}"
 
     def __str__(self):
         return f"SensorData with {len(self.time)} points"
@@ -62,19 +63,29 @@ class SensorData:
         std_sample_spacing = np.std(time_deltas)
         return avg_sample_spacing, std_sample_spacing
 
-    def plot(self, ax: matplotlib.axes.Axes, label: str = None, **kwargs) -> None:
+    def plot(self, ax: matplotlib.axes.Axes, label: str = None, time_range: np.ndarray = None, **kwargs) -> None:
         """
         Plot this sensor's data on the given axes.
-        
+
         Args:
             ax: matplotlib axes to plot on
             label: label for the plot line
+            time_range: optional np.ndarray [start_time, end_time] to restrict plot to a time window
             **kwargs: additional plotting arguments passed to ax.plot()
         """
         if label is None:
             label = f"Sensor Data"
-        
-        ax.plot(self.time, self.values, label=label, **kwargs)
+
+        if time_range is not None:
+            start_time, end_time = time_range
+            mask = (self.time >= start_time) & (self.time <= end_time)
+            plot_time = self.time[mask]
+            plot_values = self.values[mask]
+        else:
+            plot_time = self.time
+            plot_values = self.values
+
+        ax.plot(plot_time, plot_values, label=label, **kwargs)
 
     def plot_with_derivative(self, ax: matplotlib.axes.Axes, label: str = None, show_plot: bool = True) -> tuple[matplotlib.figure.Figure, matplotlib.axes.Axes]:
         """
@@ -153,16 +164,24 @@ class Event:
     def __str__(self):
         return f"UUID-{self.get_short_uuid()}___Label-{self.label}"
 
-    def get_channel_data(self, channel_number: int) -> tuple[np.ndarray, np.ndarray]:
+    def get_channel_data(self, channel_number: int, time_range: np.ndarray = None) -> tuple[np.ndarray, np.ndarray]:
         """
         channel_number: (int) index of channel data is being requested for
-        returns numpy arrays of times and values from channel_number 
+        time_range: (np.ndarray) optional time range filter [start_time, end_time] in microseconds
+        returns numpy arrays of times and values from channel_number, optionally filtered by time range
         """
         if channel_number >= len(self.data):
             raise ValueError(f"Channel {channel_number} does not exist. Only {len(self.data)} channels available.")
         
         sensor_data = self.data[channel_number]
-        return sensor_data.time, sensor_data.values
+        
+        if time_range is None:
+            return sensor_data.time, sensor_data.values
+        
+        # Filter data by time range
+        start_time, end_time = time_range
+        mask = (sensor_data.time >= start_time) & (sensor_data.time <= end_time)
+        return sensor_data.time[mask], sensor_data.values[mask]
     
     def get_sensor_data(self, channel_number: int) -> SensorData:
         """

@@ -297,72 +297,94 @@ def calculate_classification_threshold(events: list[rec.Event], min_freq_range=(
 
 
 if __name__ == "__main__":
+
+
+##### Plotting all the ping pong events
+    import os
+
+    # Folder containing the raw event data files
     folder_name = "Data/RawEventData/"
-    event1 = rec.event_file_read(folder_name + "LocatingData/6in_(18.0,6.4)_0.txt")
-    event2 = rec.event_file_read(folder_name + "LocatingData/6in_(18.0,6.4)_1.txt")
 
-    channel = 2
-    fig, ax = plt.subplots()
-    event1.plot(ax)
-    plt.show()
-    x, t = event1.get_channel_data(channel)
-    x = np.array(x)
-    t = np.array(t)
+    # List all .txt files in the folder (skip non-txt files)
+    event_files = [f for f in os.listdir(folder_name) if f.endswith("p.txt")]
 
-    x = x[15:-250]
-    t = t[15:-250]
-    t_s = t * 1e-6
+    # Plot each event's channels
+    for fname in event_files:
+        try:
+            event = rec.event_file_read(os.path.join(folder_name, fname))
+            fig, ax = plt.subplots()
+            event.plot(ax=ax, time_range=[-3000, 5000])
+            ax.set_title(f"Event: {fname}")
+            plt.show()
+        except Exception as e:
+            print(f"Failed to plot {fname}: {e}")
 
-    tx, utx = event1.get_channel_events(channel).get_sample_rate()
-    fs = 1 / tx * 1e6
-    N = len(x)
+#### Poor attempts at STFT
+    # folder_name = "Data/RawEventData/"
+    # event1 = rec.event_file_read(folder_name + "LocatingData/6in_(18.0,6.4)_0.txt")
+    # event2 = rec.event_file_read(folder_name + "LocatingData/6in_(18.0,6.4)_1.txt")
 
-    window_length = 6
-    g_std = 2
-    # window = scipy.signal.windows.gaussian(
-    #     M=window_length,
-    #     std=g_std,
-    #     sym=True
+    # time_range = [-1000, 3000]
+    # channel = 2
+    # fig, ax = plt.subplots()
+    # event1.plot(ax, time_range=time_range)
+    # plt.show()
+    # x, t = event1.get_channel_data(channel, time_range=time_range)
+    # t = t - t[0]
+
+    # t_s = t * 1e-6
+
+    # tx, utx = event1.get_sensor_data(channel).get_sample_rate()
+    # fs = 1 / tx
+    # N = len(x)
+
+    # window_length = 20
+    # g_std = 2
+    # # window = scipy.signal.windows.gaussian(
+    # #     M=window_length,
+    # #     std=g_std,
+    # #     sym=True
+    # # )
+    # window = scipy.signal.windows.boxcar(window_length)
+    # sft = scipy.signal.ShortTimeFFT(
+    #     win=window,
+    #     hop=10,
+    #     fs=fs,
+    #     fft_mode='centered',
+    #     mfft=None,
+    #     scale_to='magnitude'
     # )
-    window = scipy.signal.windows.boxcar(window_length)
-    sft = scipy.signal.ShortTimeFFT(
-        win=window,
-        hop=3,
-        fs=fs,
-        fft_mode='centered',
-        mfft=None,
-        scale_to='magnitude'
-    )
 
-    sx = sft.stft(x)
-    t_lo, t_hi, f_lo, f_hi = sft.extent(
-        n=N,
-        axes_seq='tf'
-    )
+    # sx = sft.stft(x)
+    # t_lo, t_hi, f_lo, f_hi = sft.extent(
+    #     n=N,
+    #     axes_seq='tf'
+    # )
 
-    fig1, ax1 = plt.subplots(figsize=(6., 4.)) 
 
-    ax1.set_title(rf"STFT ({sft.m_num*sft.T:g}$\,us$ Gaussian window, " +
-                rf"$\sigma_t={g_std*sft.T}\,$us)")
-    ax1.set(xlabel=f"Time $t$ in microseconds ({sft.p_num(N)} slices, " +
-                rf"$\Delta t = {sft.delta_t:g}\,$us)",
-            ylabel=f"Freq. $f$ in MHz ({sft.f_pts} bins, " +
-                rf"$\Delta f = {sft.delta_f:g}\,$MHz)",
-            xlim=(t_lo, t_hi))
+    # fig1, ax1 = plt.subplots(figsize=(6., 4.)) 
 
-    im1 = ax1.imshow(abs(sx), origin='lower', aspect='auto',
-                    extent=sft.extent(N), cmap='viridis')
-    fig1.colorbar(im1, label="Magnitude $|S_x(t, f)|$")
+    # ax1.set_title(rf"STFT ({sft.m_num*sft.T:g}$\,us$ Gaussian window, " +
+    #             rf"$\sigma_t={g_std*sft.T}\,$us)")
+    # ax1.set(xlabel=f"Time $t$ in microseconds ({sft.p_num(N)} slices, " +
+    #             rf"$\Delta t = {sft.delta_t:g}\,$us)",
+    #         ylabel=f"Freq. $f$ in MHz ({sft.f_pts} bins, " +
+    #             rf"$\Delta f = {sft.delta_f:g}\,$MHz)",
+    #         xlim=(t_lo, t_hi))
 
-    # Shade areas where window slices stick out to the side:
-    for t0_, t1_ in [(t_lo, sft.lower_border_end[0] * sft.T),
-                    (sft.upper_border_begin(N)[0] * sft.T, t_hi)]:
-        ax1.axvspan(t0_, t1_, color='w', linewidth=0, alpha=.2)
-    for t_ in [0, N * sft.T]:  # mark signal borders with vertical line:
-        ax1.axvline(t_, color='y', linestyle='--', alpha=0.5)
-    ax1.legend()
-    fig1.tight_layout()
-    plt.show()
+    # im1 = ax1.imshow(abs(sx), origin='lower', aspect='auto',
+    #                 extent=sft.extent(N), cmap='viridis')
+    # fig1.colorbar(im1, label="Magnitude $|S_x(t, f)|$")
+
+    # # Shade areas where window slices stick out to the side:
+    # for t0_, t1_ in [(t_lo, sft.lower_border_end[0] * sft.T),
+    #                 (sft.upper_border_begin(N)[0] * sft.T, t_hi)]:
+    #     ax1.axvspan(t0_, t1_, color='w', linewidth=0, alpha=.2)
+    # for t_ in [0, N * sft.T]:  # mark signal borders with vertical line:
+    #     ax1.axvline(t_, color='y', linestyle='--', alpha=0.5)
+    # ax1.legend()
+    # fig1.tight_layout()
+    # plt.show()
 
 
 ### Older things pre 8/1/2025
