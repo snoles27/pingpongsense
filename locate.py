@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import matplotlib
 import matplotlib.patches as patches
 from scipy.optimize import root
+from scipy import signal
+from scipy.stats import pearsonr
+import os
 
 ### SENSOR POSITIONS ### 
 SENS0_X = 51.5
@@ -21,6 +24,12 @@ SPEED_UNCERT = 0.02  # estimate of speed uncertainty
 
 MIN_PRERANGE = -5000
 MAX_PRERANGE = -2000
+
+# Matched filter parameters
+TEMPLATE_LENGTH = 100  # Length of template in samples
+CORRELATION_THRESHOLD = 0.6  # Minimum correlation for detection
+TEMPLATE_WINDOW_START = 0  # Start of template window relative to signal onset
+TEMPLATE_WINDOW_END = 500  # End of template window in microseconds
 
 
 def calculate_signal_time(event: rd.Event, channel: int, base_range: list[int] = [MIN_PRERANGE, MAX_PRERANGE], 
@@ -328,6 +337,357 @@ def plot_location_solution(sensor_loc: np.ndarray, x_solution: np.ndarray, x_cov
     return ax
 
 
+def generate_signal_template(events: list[rd.Event], channel: int, template_length: int = TEMPLATE_LENGTH) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Generate a simple parameterized signal template: sinusoid with exponential decay.
+    
+    Args:
+        events: List of Event objects (not used for this simple template)
+        channel: Channel index (not used for this simple template)
+        template_length: Number of samples in the template
+    
+    Returns:
+        tuple of (template_values, template_times) - normalized template and corresponding times
+    """
+    # Create a simple sinusoidal template with exponential decay
+    # This is more robust than learning from noisy data
+    
+    # Template parameters
+    frequency = 0.02  # Frequency in cycles per sample (adjustable)
+    decay_rate = 0.015  # Exponential decay rate (adjustable)
+    num_periods = 1.5  # Number of periods in the template
+    
+    # Create time array for template
+    template_times = np.linspace(0, num_periods / frequency, template_length)
+    
+    # Generate template: sinusoid * exponential decay
+    template_values = np.sin(2 * np.pi * frequency * template_times * template_length / num_periods)
+    template_values *= np.exp(-decay_rate * template_times * template_length / num_periods)
+    
+    # Normalize the template
+    template_values = (template_values - np.mean(template_values)) / np.std(template_values)
+    
+    return template_values, template_times
+
+
+def create_scalable_template(base_frequency: float = 0.02, base_amplitude: float = 1.0, 
+                           frequency_scale: float = 1.0, amplitude_scale: float = 1.0,
+                           template_length: int = TEMPLATE_LENGTH, num_periods: float = 1.5) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Create a scalable sinusoidal template with exponential decay.
+    
+    Args:
+        base_frequency: Base frequency in cycles per sample
+        base_amplitude: Base amplitude
+        frequency_scale: Frequency scaling factor
+        amplitude_scale: Amplitude scaling factor
+        template_length: Number of samples in the template
+        num_periods: Number of periods in the template
+    
+    Returns:
+        tuple of (template_values, template_times) - scaled template and corresponding times
+    """
+    # Apply scaling
+    frequency = base_frequency * frequency_scale
+    amplitude = base_amplitude * amplitude_scale
+    
+    # Create time array for template
+    template_times = np.linspace(0, num_periods / frequency, template_length)
+    
+    # Generate template: scaled sinusoid * exponential decay
+    template_values = amplitude * np.sin(2 * np.pi * frequency * template_times * template_length / num_periods)
+    template_values *= np.exp(-0.015 * template_times * template_length / num_periods)
+    
+    # Normalize the template
+    template_values = (template_values - np.mean(template_values)) / np.std(template_values)
+    
+    return template_values, template_times
+
+
+def generate_adaptive_templates(events: list[rd.Event], channel: int, 
+                              template_length: int = TEMPLATE_LENGTH) -> tuple[dict, dict]:
+    """
+    Generate multiple templates at different scales for robust detection.
+    
+    Args:
+        events: List of Event objects to analyze for scaling parameters
+        channel: Channel index to analyze
+        template_length: Number of samples in the template
+    
+    Returns:
+        tuple of (templates, template_times) - dictionaries of templates at different scales
+    """
+    if not events:
+        # Fall back to default template if no events available
+        default_template, default_times = create_scalable_template()
+        return {0: default_template}, {0: default_times}
+    
+    # Analyze events to determine appropriate scaling
+    frequencies = []
+    amplitudes = []
+    
+    for event in events[:3]:  # Use first 3 events for analysis
+        try:
+            sensor_data = event.get_sensor_data(channel)
+            values = sensor_data.values
+            
+            # Simple frequency estimation using zero crossings
+            zero_crossings = np.where(np.diff(np.signbit(values)))[0]
+            if len(zero_crossings) > 1:
+                # Estimate frequency from zero crossings
+                time_between_crossings = np.diff(sensor_data.time[zero_crossings])
+                avg_period = np.mean(time_between_crossings)
+                if avg_period > 0:
+                    freq = 1.0 / avg_period
+                    frequencies.append(freq)
+            
+            # Estimate amplitude from peak-to-peak
+            peak_to_peak = np.max(values) - np.min(values)
+            amplitudes.append(peak_to_peak)
+            
+        except Exception as e:
+            continue
+    
+    # Calculate scaling factors
+    if frequencies:
+        avg_freq = np.mean(frequencies)
+        freq_scale = avg_freq / 0.02  # Normalize to base frequency
+    else:
+        freq_scale = 1.0
+    
+    if amplitudes:
+        avg_amplitude = np.mean(amplitudes)
+        amp_scale = avg_amplitude / 1000.0  # Normalize to base amplitude
+    else:
+        amp_scale = 1.0
+    
+    # Create templates at different scales
+    templates = {}
+    template_times = {}
+    
+    # Base template
+    base_template, base_times = create_scalable_template(
+        frequency_scale=freq_scale, amplitude_scale=amp_scale
+    )
+    templates[0] = base_template
+    template_times[0] = base_times
+    
+    # Higher frequency template
+    high_freq_template, high_freq_times = create_scalable_template(
+        frequency_scale=freq_scale * 1.5, amplitude_scale=amp_scale
+    )
+    templates[1] = high_freq_template
+    template_times[1] = high_freq_times
+    
+    # Lower frequency template
+    low_freq_template, low_freq_times = create_scalable_template(
+        frequency_scale=freq_scale * 0.7, amplitude_scale=amp_scale
+    )
+    templates[2] = low_freq_template
+    template_times[2] = low_freq_times
+    
+    return templates, template_times
+
+
+def matched_filter_detection(signal_data: np.ndarray, template: np.ndarray, 
+                           correlation_threshold: float = CORRELATION_THRESHOLD,
+                           window_size: int = 50) -> tuple[int, float, float]:
+    """
+    Detect signal onset using matched filtering with correlation analysis.
+    
+    Args:
+        signal_data: Raw signal values to analyze
+        template: Normalized template to match against
+        correlation_threshold: Minimum correlation coefficient for detection
+        window_size: Size of sliding window for correlation calculation
+    
+    Returns:
+        tuple of (detection_index, correlation_score, confidence)
+    """
+    if len(signal_data) < len(template):
+        raise ValueError("Signal data must be longer than template")
+    
+    # Normalize the signal data
+    signal_normalized = (signal_data - np.mean(signal_data)) / np.std(signal_data)
+    
+    # Use scipy's correlate function for efficient correlation
+    correlation = signal.correlate(signal_normalized, template, mode='valid')
+    
+    # Normalize correlation values
+    correlation = correlation / (len(template) * np.std(signal_normalized) * np.std(template))
+    
+    # Find peaks in correlation that exceed threshold
+    peaks, _ = signal.find_peaks(correlation, height=correlation_threshold, distance=window_size)
+    
+    if len(peaks) == 0:
+        # No strong correlation found, return the maximum correlation point
+        max_idx = np.argmax(correlation)
+        max_corr = correlation[max_idx]
+        confidence = max_corr / correlation_threshold if max_corr > 0 else 0
+        return max_idx, max_corr, confidence
+    
+    # Find the earliest strong correlation (first peak)
+    detection_idx = peaks[0]
+    correlation_score = correlation[detection_idx]
+    
+    # Calculate confidence based on how much the correlation exceeds threshold
+    confidence = correlation_score / correlation_threshold
+    
+    return detection_idx, correlation_score, confidence
+
+
+def calculate_signal_time_matched_filter(event: rd.Event, channel: int, 
+                                       template: np.ndarray = None,
+                                       base_range: list[int] = [MIN_PRERANGE, MAX_PRERANGE],
+                                       correlation_threshold: float = CORRELATION_THRESHOLD) -> tuple[int, int]:
+    """
+    Determine signal onset time using matched filtering approach.
+    
+    Args:
+        event: Event object containing sensor data
+        channel: Channel index to analyze
+        template: Pre-computed template (if None, will use default threshold method)
+        base_range: Time range for baseline calculation
+        correlation_threshold: Minimum correlation for detection
+    
+    Returns:
+        tuple(time solution, uncertainty in time)
+    """
+    default_uncertainty = 125
+    
+    # Get sensor data
+    sensor_data = event.get_sensor_data(channel)
+    times = sensor_data.time
+    values = sensor_data.values
+    
+    if template is None:
+        # Fall back to threshold method if no template provided
+        return calculate_signal_time(event, channel, base_range)
+    
+    try:
+        # Apply matched filter detection
+        detection_idx, correlation_score, confidence = matched_filter_detection(
+            values, template, correlation_threshold
+        )
+        
+        # Convert index to time
+        detection_time = times[detection_idx]
+        
+        # Adjust uncertainty based on correlation confidence
+        # Higher confidence = lower uncertainty
+        adjusted_uncertainty = default_uncertainty / max(confidence, 0.1)
+        
+        print(f"    Matched filter: correlation={correlation_score:.3f}, confidence={confidence:.2f}")
+        
+        return detection_time, int(adjusted_uncertainty)
+        
+    except Exception as e:
+        print(f"    Matched filter failed: {e}, falling back to threshold method")
+        return calculate_signal_time(event, channel, base_range)
+
+
+def plot_template_comparison(event: rd.Event, channel: int, template: np.ndarray, 
+                           template_times: np.ndarray, detection_time: int,
+                           ax: matplotlib.axes.Axes = None) -> matplotlib.axes.Axes:
+    """
+    Plot the signal template comparison with the detected signal.
+    
+    Args:
+        event: Event object containing sensor data
+        channel: Channel index being analyzed
+        template: Normalized template values
+        template_times: Template time array
+        detection_time: Detected onset time
+        ax: matplotlib axes to plot on (if None, creates new figure)
+    
+    Returns:
+        matplotlib axes object
+    """
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(12, 6))
+    
+    # Get sensor data
+    sensor_data = event.get_sensor_data(channel)
+    times = sensor_data.time
+    values = sensor_data.values
+    
+    # Plot the raw signal
+    ax.plot(times, values, label=f'Channel {channel} Raw Signal', color='blue', alpha=0.7)
+    
+    # Plot the template aligned at detection time
+    template_aligned_times = detection_time + template_times
+    # Scale template to match signal amplitude for visualization
+    template_scaled = template * np.std(values) + np.mean(values)
+    ax.plot(template_aligned_times, template_scaled, label='Signal Template', 
+            color='red', linewidth=2, linestyle='--')
+    
+    # Mark the detection point
+    ax.axvline(x=detection_time, color='green', linestyle=':', linewidth=2, 
+               label=f'Detection Time: {detection_time:.1f}')
+    
+    # Focus on the detection region
+    detection_idx = np.argmin(np.abs(times - detection_time))
+    window_size = 200
+    start_idx = max(0, detection_idx - window_size // 2)
+    end_idx = min(len(times), detection_idx + window_size // 2)
+    
+    ax.set_xlim(times[start_idx], times[end_idx])
+    ax.set_xlabel('Time (μs)')
+    ax.set_ylabel('Amplitude (a.u.)')
+    ax.set_title(f'Matched Filter Detection - Channel {channel}')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    
+    return ax
+
+
+def save_templates(templates: dict, template_times: dict, filename: str = "signal_templates.npz"):
+    """
+    Save generated templates to a file for reuse.
+    
+    Args:
+        templates: Dictionary of templates for each channel
+        template_times: Dictionary of template times for each channel
+        filename: Name of the file to save templates to
+    """
+    try:
+        np.savez(filename, 
+                 template_0=templates[0], template_1=templates[1], template_2=templates[2],
+                 times_0=template_times[0], times_1=template_times[1], times_2=template_times[2])
+        print(f"Templates saved to {filename}")
+    except Exception as e:
+        print(f"Error saving templates: {e}")
+
+
+def load_templates(filename: str = "signal_templates.npz") -> tuple[dict, dict]:
+    """
+    Load previously saved templates from a file.
+    
+    Args:
+        filename: Name of the file to load templates from
+    
+    Returns:
+        tuple of (templates, template_times) dictionaries
+    """
+    try:
+        data = np.load(filename)
+        templates = {
+            0: data['template_0'],
+            1: data['template_1'], 
+            2: data['template_2']
+        }
+        template_times = {
+            0: data['times_0'],
+            1: data['times_1'],
+            2: data['times_2']
+        }
+        print(f"Templates loaded from {filename}")
+        return templates, template_times
+    except Exception as e:
+        print(f"Error loading templates: {e}")
+        return {0: None, 1: None, 2: None}, {0: None, 1: None, 2: None}
+
+
 if __name__ == "__main__":
     import os
     
@@ -347,6 +707,59 @@ if __name__ == "__main__":
     for file in data_files:
         print(f"  - {file}")
     
+    # Try to load existing templates first, generate new ones if needed
+    print(f"\nLoading or generating signal templates for matched filtering...")
+    
+    # Try to load existing templates
+    templates, template_times = load_templates()
+    
+    if all(templates.values()):  # All templates loaded successfully
+        print("  Successfully loaded existing templates")
+    else:
+        print("  No existing templates found, generating new ones...")
+        try:
+            # Read first few events to generate templates
+            template_events = []
+            for i, file_name in enumerate(data_files[:5]):  # Use first 5 files for templates
+                try:
+                    full_path = os.path.join(data_directory, file_name)
+                    event_data = rd.event_file_read(full_path=full_path)
+                    template_events.append(event_data)
+                    print(f"  Added {file_name} to template generation")
+                except Exception as e:
+                    print(f"  Warning: Could not read {file_name} for template: {e}")
+                    continue
+        
+            if template_events:
+                # Generate templates for each channel
+                templates = {}
+                template_times = {}
+                for channel in range(3):
+                    try:
+                        template_values, times = generate_signal_template(template_events, channel)
+                        templates[channel] = template_values
+                        template_times[channel] = times
+                        print(f"  Generated template for channel {channel} (length: {len(template_values)})")
+                    except Exception as e:
+                        print(f"  Warning: Could not generate template for channel {channel}: {e}")
+                        templates[channel] = None
+                        template_times[channel] = None
+                
+                # Save templates for future use
+                try:
+                    save_templates(templates, template_times)
+                except Exception as e:
+                    print(f"  Warning: Could not save templates: {e}")
+            else:
+                print("  Warning: No events available for template generation")
+                templates = {0: None, 1: None, 2: None}
+                template_times = {0: None, 1: None, 2: None}
+            
+        except Exception as e:
+            print(f"  Error during template generation: {e}")
+            templates = {0: None, 1: None, 2: None}
+            template_times = {0: None, 1: None, 2: None}
+    
     # Process each file
     for file_name in data_files:
         print(f"\nProcessing: {file_name}")
@@ -358,10 +771,26 @@ if __name__ == "__main__":
             # Read event data
             event_data = rd.event_file_read(full_path=full_path)
             
-            # Calculate signal times for all channels
-            t0, ut0 = calculate_signal_time(event_data, channel=0, trigger_multiple=trigger_multiple)
-            t1, ut1 = calculate_signal_time(event_data, channel=1, trigger_multiple=trigger_multiple)
-            t2, ut2 = calculate_signal_time(event_data, channel=2, trigger_multiple=trigger_multiple)
+            # Calculate signal times using matched filtering if templates available
+            print(f"  Detecting signal times...")
+            
+            if templates[0] is not None:
+                t0, ut0 = calculate_signal_time_matched_filter(event_data, channel=0, template=templates[0])
+            else:
+                t0, ut0 = calculate_signal_time(event_data, channel=0, trigger_multiple=trigger_multiple)
+                print(f"    Using threshold method for channel 0")
+            
+            if templates[1] is not None:
+                t1, ut1 = calculate_signal_time_matched_filter(event_data, channel=1, template=templates[1])
+            else:
+                t1, ut1 = calculate_signal_time(event_data, channel=1, trigger_multiple=trigger_multiple)
+                print(f"    Using threshold method for channel 1")
+            
+            if templates[2] is not None:
+                t2, ut2 = calculate_signal_time_matched_filter(event_data, channel=2, template=templates[2])
+            else:
+                t2, ut2 = calculate_signal_time(event_data, channel=2, trigger_multiple=trigger_multiple)
+                print(f"    Using threshold method for channel 2")
             
             # Print signal times
             print(f"  Signal times: t0={t0:.1f}±{ut0}, t1={t1:.1f}±{ut1}, t2={t2:.1f}±{ut2}")
@@ -371,8 +800,8 @@ if __name__ == "__main__":
             t20 = t2 - t0
             print(f"  Time differences: t10={t10:.1f}, t20={t20:.1f}")
             
-            # Create figure with two subplots
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+            # Create figure with three subplots: raw data, template comparison, and location
+            fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 6))
             fig.suptitle(f'Event Analysis: {file_name}', fontsize=14, fontweight='bold')
             
             # Plot event with signal times on left subplot
@@ -380,22 +809,32 @@ if __name__ == "__main__":
                                        ax=ax1, time_padding_frac=0.5, show_plot=False)
             ax1.set_title('Raw Data with Signal Detection Times')
             
+            # Plot template comparison for middle subplot (show channel 0 as example)
+            if templates[0] is not None:
+                plot_template_comparison(event_data, 0, templates[0], template_times[0], t0, ax=ax2)
+                ax2.set_title('Matched Filter Detection (Channel 0)')
+            else:
+                ax2.text(0.5, 0.5, 'No Template\nAvailable', 
+                        ha='center', va='center', transform=ax2.transAxes, 
+                        fontsize=12, bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray"))
+                ax2.set_title('Template Comparison (No Template)')
+            
             # Solve for location and plot on right subplot
             try:
                 soln = solve_location(np.array([t10, t20]), sensor_loc=sensor_loc_list, speed=WAVE_SPEED)
                 print(f"  Location solution: x={soln.x[0]:.2f}, y={soln.x[1]:.2f}")
                 
                 plot_location_solution(sensor_loc_list, soln.x, soln.cov_x, 
-                                     ax=ax2, data_label=file_name.replace('.txt', ''), 
+                                     ax=ax3, data_label=file_name.replace('.txt', ''), 
                                      plot_sensors=True, color=None)
-                ax2.set_title('Ball Impact Location')
+                ax3.set_title('Ball Impact Location')
                 
             except Exception as loc_error:
                 print(f"  Error solving location: {loc_error}")
-                ax2.text(0.5, 0.5, 'Location\nSolution\nFailed', 
-                        ha='center', va='center', transform=ax2.transAxes, 
+                ax3.text(0.5, 0.5, 'Location\nSolution\nFailed', 
+                        ha='center', va='center', transform=ax3.transAxes, 
                         fontsize=12, bbox=dict(boxstyle="round,pad=0.3", facecolor="lightgray"))
-                ax2.set_title('Ball Impact Location (Failed)')
+                ax3.set_title('Ball Impact Location (Failed)')
             
             plt.tight_layout()
             plt.show()
